@@ -1,5 +1,5 @@
 
-# Pokémon Console Battle
+# Pokémon Text Battle
    
 可以以**文本形式**和AI进行第九代随机宝可梦六六单打对战
 
@@ -24,8 +24,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/pokemon-console-battle.git
-cd pokemon-console-battle
+git clone https://github.com/yourusername/pokemon-text-battle.git
+cd pokemon-text-battle
 
 # 安装依赖
 npm install
@@ -78,7 +78,7 @@ npm start
 ## 📁 项目结构
 
 ```
-pokemon-console-battle/
+pokemon-text-battle/
 ├── src/                    # 源代码目录
 │   ├── ai/                # AI 相关代码
 │   │   ├── deepseek-ai.js # DeepSeek AI 实现
