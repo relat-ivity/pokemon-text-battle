@@ -1,7 +1,7 @@
 
 # Pokémon Console Battle
    
-可以以**文本形式**和AI进行第九代随机宝可梦六六单打对战*
+可以以**文本形式**和AI进行第九代随机宝可梦六六单打对战
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -37,13 +37,6 @@ npm run build
 ## 🚀 快速开始
 
 ```bash
-# 方式一：使用 npm 脚本（推荐）
-npm start
-
-# 方式二：直接运行
-node index.js
-
-# 方式三：运行主文件
 node src/battle/pve-battle.js
 ```
 
