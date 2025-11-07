@@ -1,0 +1,44 @@
+{
+  "name": "pokemon-console-battle",
+  "version": "1.0.0",
+  "description": "可以在命令行和AI进行第九代随机六六单打",
+  "main": "src/index.js",
+  "bin": {
+    "pokemon-battle": "./index.js"
+  },
+  "scripts": {
+    "start": "npm run build && node index.js",
+    "battle": "npm run build && node src/battle/pve-battle.js",
+    "simple": "npm run build && node src/battle/simple-battle.js",
+    "test": "node tests/test-deepseek.js",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "postinstall": "npm run build"
+  },
+  "keywords": [
+    "pokemon",
+    "battle",
+    "console",
+    "ai",
+    "deepseek",
+    "showdown"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/pokemon-console-battle"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "pokemon-showdown": "^0.11.10",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.6"
+  }
+}
+
