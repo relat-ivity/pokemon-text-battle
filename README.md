@@ -1,13 +1,10 @@
+
 # Pokémon Console Battle
-
-<div align="center">
-
-**可以在命令行和AI进行第九代随机六六单打**
+   
+可以以**文本形式**和AI进行第九代随机宝可梦六六单打对战*
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-</div>
 
 ## ✨ 特性
 
