@@ -63,7 +63,9 @@ export class SmartAIPlayer extends AIPlayer {
 	 */
 	protected override handleTeamPreviewRequest(request: TeamPreviewRequest): void {
 		// 默认选择，保持原始顺序
+		if (this.debug) console.log('[SmartAI] Team Preview: 使用默认顺序');
 		this.choose(`default`);
+		if (this.debug) console.log('[SmartAI] Team Preview: 已发送default选择');
 	}
 	
 	/**

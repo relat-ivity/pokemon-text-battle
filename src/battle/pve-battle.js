@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 // debug设置
-let debug_mode = ture;
+let debug_mode = true;
 
 // 翻译器
 let translator = Translator.getInstance('cn');
@@ -55,9 +55,13 @@ async function startPVEBattle() {
 		console.log("未知对手，将使用本地智能AI")
 	}
 
-	// 设置战斗参数
+	// 创建战斗流
+	const streams = Sim.getPlayerStreams(new Sim.BattleStream());
+	
+	// 设置战斗参数 - 使用自定义规则启用Team Preview
 	const spec = {
-		formatid: format,
+		formatid: 'gen9customgame',
+		ruleset: ['Standard', 'Team Preview', 'Sleep Clause Mod', 'Dynamax Clause'],
 	};
 
 	// 生成随机队伍 - 使用 gen9randombattle 生成，然后设置为50级
@@ -98,28 +102,72 @@ async function startPVEBattle() {
 		}
 	}));
 
+	// 通过工厂创建 AI 对手（必须在 p2team 和 streams 创建之后）
+	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode, p1team);
+	console.log(`✓ 已创建对手: ${opponent}`);
+	
+	// 启动AI的异步流监听
+	ai.start().catch(err => {
+		console.error('❌ AI启动失败:', err);
+		battleEnded = true;
+	});
+	console.log('✓ AI已启动\n');
+
 	const p2spec = {
 		name: "AI 对手",
 		team: Sim.Teams.pack(p2team),
 	};
 
-	// 创建战斗流
-	const streams = Sim.getPlayerStreams(new Sim.BattleStream());
-	const ai = AIPlayerFactory.createAI(aiType, streams.p2, false, p1team);
-	console.log(`✓ 已创建对手: ${opponent}\n`);
-
 	// 显示你的队伍信息
 	displayTeamInfo(p1team, playerName);
 
-	const continueGame = await prompt('\n按回车开始对战...');
-	console.log('\n战斗开始！\n');
-
+	// 在战斗开始前选择队伍顺序
+	console.log('\n请选择你的队伍首发顺序');
+	console.log('选择指令格式: team 数字序列  (按优先级顺序，首发在最前) (eg: team 312456)');
+	
+	let teamOrder = null;
+	while (!teamOrder) {
+		const choice = await prompt('\n请输入指令: ');
+		if (choice && choice.toLowerCase().startsWith('team ')) {
+			const order = choice.substring(5).trim();
+			
+			// 验证队伍顺序格式
+			const teamSize = p1team.length;
+			if (order.length !== teamSize) {
+				console.log(`❌ 数字长度错误，应为 ${teamSize} 位（队伍有 ${teamSize} 只宝可梦）`);
+				continue;
+			}
+			
+			// 检查是否都是有效数字
+			const digits = order.split('').map(Number);
+			const hasInvalidDigit = digits.some(d => d < 1 || d > teamSize || isNaN(d));
+			if (hasInvalidDigit) {
+				console.log(`❌ 数字必须在 1-${teamSize} 之间`);
+				continue;
+			}
+			
+			// 检查是否有重复数字
+			const uniqueDigits = new Set(digits);
+			if (uniqueDigits.size !== digits.length) {
+				console.log(`❌ 数字不能重复，每个位置只能出现一次`);
+				continue;
+			}
+			
+			// 验证通过
+			teamOrder = order;
+			console.log(`\n✓ 队伍顺序已设置: ${teamOrder}`);
+		} else {
+			console.log('❌ 格式错误，请使用 "team 数字序列" 格式');
+		}
+	}
 
 	let waitingForChoice = false;
 	let currentRequest = null;
 	let battleEnded = false;
 	let playerTeam = p1team; // 保存队伍信息供查看
 	let currentTurn = 0; // 追踪当前回合数
+	let battleInitialized = false; // 追踪战斗是否已初始化
+	let pendingTeamPreviewRequest = null; // 暂存提前到达的team preview request
 
 	// 追踪场地信息
 	let battleField = {
@@ -147,8 +195,31 @@ async function startPVEBattle() {
 			for await (const chunk of streams.p1) {
 				const lines = chunk.split('\n');
 
-				for (const line of lines) {
-					if(debug_mode) console.log("[Debug] " + line);
+			for (const line of lines) {
+				if(debug_mode) console.log("[Debug] " + line);
+				
+				// 检测战斗初始化完成标志
+				if (line === '|start' || line === '|teampreview') {
+					battleInitialized = true;
+					// 如果有暂存的team preview request，现在处理它
+					if (pendingTeamPreviewRequest) {
+						streams.p1.write(`team ${teamOrder}`);
+						if(debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
+						pendingTeamPreviewRequest = null;
+					}
+				}
+				
+				// 检测战斗结束
+				if (line.startsWith('|win|')) {
+					battleEnded = true;
+					const winner = line.split('|win|')[1];
+					console.log('\n战斗结束！');
+					console.log(`胜者: ${winner}`);
+				} else if (line === '|tie') {
+					battleEnded = true;
+					console.log('\n战斗结束！平局！');
+				}
+					
 					// 显示战斗消息（过滤部分冗余信息）
 					if (line.startsWith('|')) {
 						// 格式化显示重要的战斗信息
@@ -434,11 +505,23 @@ async function startPVEBattle() {
 						const requestData = line.split('|request|')[1];
 						if (requestData) {
 							try {
-								currentRequest = JSON.parse(requestData);
-								if (currentRequest.wait) {
-									// 等待对手
-									console.log('\n等待对手行动...');
-								} else if (currentRequest.forceSwitch) {
+							currentRequest = JSON.parse(requestData);
+							if (currentRequest.wait) {
+								// 等待对手
+								console.log('\n等待对手行动...');
+						} else if (currentRequest.teamPreview) {
+							// Team Preview阶段：自动发送之前选择的队伍顺序
+							if (battleInitialized) {
+								// 战斗已初始化，立即发送
+								console.log(`\n正在应用队伍顺序: ${teamOrder}`);
+								streams.p1.write(`team ${teamOrder}`);
+								if(debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
+							} else {
+								// 战斗还未初始化，暂存request等待
+								if(debug_mode) console.log('[Debug] 收到提前的team preview request，等待战斗初始化...');
+								pendingTeamPreviewRequest = currentRequest;
+							}
+							} else if (currentRequest.forceSwitch) {
 									waitingForChoice = true;
 									displaySwitchChoices(currentRequest);
 								} else if (currentRequest.active) {
@@ -469,34 +552,11 @@ async function startPVEBattle() {
 		}
 	})();
 
-	// 监听全知者流（显示完整战斗日志）
-	(async () => {
-		try {
-			for await (const chunk of streams.omniscient) {
-				// 只检查实际的战斗结束消息
-				// 这些消息会在 "end" 类型的消息块中出现
-				if (chunk.startsWith('end\n')) {
-					const lines = chunk.split('\n');
-					for (const line of lines) {
-						if (line.startsWith('|win|')) {
-							battleEnded = true;
-							const winner = line.split('|win|')[1];
-							console.log('\n战斗结束！');
-							console.log(`胜者: ${winner}`);
-						} else if (line === '|tie') {
-							battleEnded = true;
-							console.log('\n战斗结束！平局！');
-						}
-					}
-				}
-			}
-		} catch (err) {
-			console.error('全知者流错误:', err);
-			battleEnded = true;
-		}
-	})();
-
-	// 启动战斗
+	// 等待用户确认后启动战斗
+	const continueGame = await prompt('\n按回车开始对战...');
+	console.log('\n战斗开始！\n');
+	
+	// 启动战斗 - gen9ou格式自带Team Preview
 	streams.omniscient.write(`>start ${JSON.stringify(spec)}\n>player p1 ${JSON.stringify(p1spec)}\n>player p2 ${JSON.stringify(p2spec)}`);
 
 	// 等待玩家输入
@@ -506,18 +566,18 @@ async function startPVEBattle() {
 		if (waitingForChoice) {
 			waitingForChoice = false;
 			try {
-				const choice = await getPlayerChoice();
-				if (choice) {
-					// 检查是否是特殊命令
-					if (choice.toLowerCase() === 'team') {
-						// 显示当前队伍状态
-						displayBattleTeamStatus(currentRequest, playerStatus);
-						waitingForChoice = true; // 重新等待输入
-					} else {
-						// 直接写入选择，不需要 >p1 前缀
-						streams.p1.write(choice);
-					}
+			const choice = await getPlayerChoice();
+			if (choice) {
+				// 检查是否是特殊命令
+				if (choice.toLowerCase() === 'team') {
+					// 显示当前队伍状态
+					displayBattleTeamStatus(currentRequest, playerStatus);
+					waitingForChoice = true; // 重新等待输入
+				} else {
+					// 直接写入选择，不需要 >p1 前缀
+					streams.p1.write(choice);
 				}
+			}
 			} catch (err) {
 				console.error('输入错误:', err);
 				waitingForChoice = true; // 重新等待输入
