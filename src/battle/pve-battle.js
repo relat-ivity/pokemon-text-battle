@@ -6,9 +6,13 @@
  */
 
 const Sim = require('pokemon-showdown');
-const { AIPlayerFactory, AIType } = require('../../dist/ai/ai-player-factory');
+const {
+	AIPlayerFactory
+} = require('../../dist/ai/ai-player-factory');
 const readline = require('readline');
-const { Translator } = require('../../dist/support/translator');
+const {
+	Translator
+} = require('../../dist/support/translator');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +33,7 @@ async function startPVEBattle() {
 	console.log('=== Pokemon Showdown PVE 对战 ===\n');
 
 	// 选择世代和格式 - 50级单打对战
-	const format = 'gen9battlestadiumsingles';
+	const format = 'gen9ou';
 	const playerName = 'Player';
 
 	console.log('输入格式:');
@@ -57,15 +61,14 @@ async function startPVEBattle() {
 
 	// 创建战斗流
 	const streams = Sim.getPlayerStreams(new Sim.BattleStream());
-	
-	// 设置战斗参数 - 使用自定义规则启用Team Preview
-	const spec = {
-		formatid: 'gen9customgame',
-		ruleset: ['Standard', 'Team Preview', 'Sleep Clause Mod', 'Dynamax Clause'],
-	};
 
-	// 生成随机队伍 - 使用 gen9randombattle 生成，然后设置为50级
+	// 生成随机队伍 - 使用 gen9randombattle 生成满足ou规则的队伍，然后设置为50级
+	const validator = new Sim.TeamValidator('gen9ou');
 	let p1team = Sim.Teams.generate('gen9randombattle');
+	while (validator.validateTeam(p1team) != null) {
+		p1team = Sim.Teams.generate('gen9randombattle');
+	}
+
 	// 将所有宝可梦设置为50级，并设置努力值每项为85，性格统一为Hardy（勤奋）
 	p1team = p1team.map(pokemon => ({
 		...pokemon,
@@ -81,12 +84,20 @@ async function startPVEBattle() {
 		}
 	}));
 
+	// 设置战斗参数
+	const spec = {
+		formatid: format,
+	};
+
 	const p1spec = {
 		name: playerName,
 		team: Sim.Teams.pack(p1team),
 	};
 
 	let p2team = Sim.Teams.generate('gen9randombattle');
+	while (validator.validateTeam(p2team) != null) {
+		p2team = Sim.Teams.generate('gen9randombattle');
+	}
 	// 将所有宝可梦设置为50级，并设置努力值每项为85，性格统一为Hardy（勤奋）
 	p2team = p2team.map(pokemon => ({
 		...pokemon,
@@ -105,7 +116,7 @@ async function startPVEBattle() {
 	// 通过工厂创建 AI 对手（必须在 p2team 和 streams 创建之后）
 	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode, p1team);
 	console.log(`✓ 已创建对手: ${opponent}`);
-	
+
 	// 启动AI的异步流监听
 	ai.start().catch(err => {
 		console.error('❌ AI启动失败:', err);
@@ -125,17 +136,19 @@ async function startPVEBattle() {
 	const teamSize = p1team.length;
 	while (!teamOrder) {
 		const choice = await prompt('\n请选择你的队伍首发(1-6的数字): ');
-		if (choice) {	
-		// 检查是否是有效数字
+		if (choice) {
+			// 检查是否是有效数字
 			const digit = parseInt(choice);
-			const hasInvalidDigit =  digit < 1 || digit > teamSize || isNaN(digit);
+			const hasInvalidDigit = digit < 1 || digit > teamSize || isNaN(digit);
 			if (hasInvalidDigit) {
 				console.log(`❌ 数字必须在 1-${teamSize} 之间`);
 				continue;
 			}
-			
+
 			// teamOrder让digits为第一个，剩下的数字在后面，例如 213456
-			teamOrder = [digit, ...Array.from({ length: teamSize }, (_, i) => i + 1).filter(n => n !== digit)].join('');
+			teamOrder = [digit, ...Array.from({
+				length: teamSize
+			}, (_, i) => i + 1).filter(n => n !== digit)].join('');
 			console.log(`\n✓ 首发已确定为${digit}号宝可梦`);
 		} else {
 			console.log('❌ ');
@@ -176,31 +189,31 @@ async function startPVEBattle() {
 			for await (const chunk of streams.p1) {
 				const lines = chunk.split('\n');
 
-			for (const line of lines) {
-				if(debug_mode) console.log("[Debug] " + line);
-				
-				// 检测战斗初始化完成标志
-				if (line === '|start' || line === '|teampreview') {
-					battleInitialized = true;
-					// 如果有暂存的team preview request，现在处理它
-					if (pendingTeamPreviewRequest) {
-						streams.p1.write(`team ${teamOrder}`);
-						if(debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
-						pendingTeamPreviewRequest = null;
+				for (const line of lines) {
+					if (debug_mode) console.log("[Debug] " + line);
+
+					// 检测战斗初始化完成标志
+					if (line === '|start' || line === '|teampreview') {
+						battleInitialized = true;
+						// 如果有暂存的team preview request，现在处理它
+						if (pendingTeamPreviewRequest) {
+							streams.p1.write(`team ${teamOrder}`);
+							if (debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
+							pendingTeamPreviewRequest = null;
+						}
 					}
-				}
-				
-				// 检测战斗结束
-				if (line.startsWith('|win|')) {
-					battleEnded = true;
-					const winner = line.split('|win|')[1];
-					console.log('\n战斗结束！');
-					console.log(`胜者: ${winner}`);
-				} else if (line === '|tie') {
-					battleEnded = true;
-					console.log('\n战斗结束！平局！');
-				}
-					
+
+					// 检测战斗结束
+					if (line.startsWith('|win|')) {
+						battleEnded = true;
+						const winner = line.split('|win|')[1];
+						console.log('\n战斗结束！');
+						console.log(`胜者: ${winner}`);
+					} else if (line === '|tie') {
+						battleEnded = true;
+						console.log('\n战斗结束！平局！');
+					}
+
 					// 显示战斗消息（过滤部分冗余信息）
 					if (line.startsWith('|')) {
 						// 格式化显示重要的战斗信息
@@ -352,17 +365,17 @@ async function startPVEBattle() {
 							const pokemonName = pokemon.split(': ')[1];
 							const pokemonCN = translate(pokemonName, 'pokemon');
 							console.log(`  → ${player} ${pokemonCN} 太晶化了! 属性变为: ${teraType}`);
-					} else if (line.startsWith('|-boost|')) {
-						const parts = line.split('|');
-						const pokemon = parts[2];
-						const stat = parts[3];
-						const amount = parseInt(parts[4]);
-						const isPlayer = pokemon.startsWith('p1');
-						const player = isPlayer ? '【你】' : '【对手】';
-						const pokemonName = pokemon.split(': ')[1];
-						const pokemonCN = translate(pokemonName, 'pokemon');
-						const statCN = translate(stat, 'boosts');
-						console.log(`  → ${player} ${pokemonCN} 的${statCN}上升了 ${amount} 级!`);
+						} else if (line.startsWith('|-boost|')) {
+							const parts = line.split('|');
+							const pokemon = parts[2];
+							const stat = parts[3];
+							const amount = parseInt(parts[4]);
+							const isPlayer = pokemon.startsWith('p1');
+							const player = isPlayer ? '【你】' : '【对手】';
+							const pokemonName = pokemon.split(': ')[1];
+							const pokemonCN = translate(pokemonName, 'pokemon');
+							const statCN = translate(stat, 'boosts');
+							console.log(`  → ${player} ${pokemonCN} 的${statCN}上升了 ${amount} 级!`);
 
 							// 更新能力变化
 							if (isPlayer) {
@@ -372,17 +385,17 @@ async function startPVEBattle() {
 								// 更新对手能力变化
 								opponentActive.boosts[stat] = (opponentActive.boosts[stat] || 0) + amount;
 							}
-					} else if (line.startsWith('|-unboost|')) {
-						const parts = line.split('|');
-						const pokemon = parts[2];
-						const stat = parts[3];
-						const amount = parseInt(parts[4]);
-						const isPlayer = pokemon.startsWith('p1');
-						const player = isPlayer ? '【你】' : '【对手】';
-						const pokemonName = pokemon.split(': ')[1];
-						const pokemonCN = translate(pokemonName, 'pokemon');
-						const statCN = translate(stat, 'boosts');
-						console.log(`  → ${player} ${pokemonCN} 的${statCN}下降了 ${amount} 级!`);
+						} else if (line.startsWith('|-unboost|')) {
+							const parts = line.split('|');
+							const pokemon = parts[2];
+							const stat = parts[3];
+							const amount = parseInt(parts[4]);
+							const isPlayer = pokemon.startsWith('p1');
+							const player = isPlayer ? '【你】' : '【对手】';
+							const pokemonName = pokemon.split(': ')[1];
+							const pokemonCN = translate(pokemonName, 'pokemon');
+							const statCN = translate(stat, 'boosts');
+							console.log(`  → ${player} ${pokemonCN} 的${statCN}下降了 ${amount} 级!`);
 
 							// 更新能力变化
 							if (isPlayer) {
@@ -486,23 +499,23 @@ async function startPVEBattle() {
 						const requestData = line.split('|request|')[1];
 						if (requestData) {
 							try {
-							currentRequest = JSON.parse(requestData);
-							if (currentRequest.wait) {
-								// 等待对手
-								console.log('\n等待对手行动...');
-						} else if (currentRequest.teamPreview) {
-							// Team Preview阶段：自动发送之前选择的队伍顺序
-							if (battleInitialized) {
-								// 战斗已初始化，立即发送
-								console.log(`\n正在应用队伍顺序: ${teamOrder}`);
-								streams.p1.write(`team ${teamOrder}`);
-								if(debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
-							} else {
-								// 战斗还未初始化，暂存request等待
-								if(debug_mode) console.log('[Debug] 收到提前的team preview request，等待战斗初始化...');
-								pendingTeamPreviewRequest = currentRequest;
-							}
-							} else if (currentRequest.forceSwitch) {
+								currentRequest = JSON.parse(requestData);
+								if (currentRequest.wait) {
+									// 等待对手
+									console.log('\n等待对手行动...');
+								} else if (currentRequest.teamPreview) {
+									// Team Preview阶段：自动发送之前选择的队伍顺序
+									if (battleInitialized) {
+										// 战斗已初始化，立即发送
+										console.log(`\n正在应用队伍顺序: ${teamOrder}`);
+										streams.p1.write(`team ${teamOrder}`);
+										if (debug_mode) console.log('[Debug] 已发送team命令，等待AI选择...');
+									} else {
+										// 战斗还未初始化，暂存request等待
+										if (debug_mode) console.log('[Debug] 收到提前的team preview request，等待战斗初始化...');
+										pendingTeamPreviewRequest = currentRequest;
+									}
+								} else if (currentRequest.forceSwitch) {
 									waitingForChoice = true;
 									displaySwitchChoices(currentRequest);
 								} else if (currentRequest.active) {
@@ -536,7 +549,7 @@ async function startPVEBattle() {
 	// 等待用户确认后启动战斗
 	const continueGame = await prompt('\n按回车开始对战...');
 	console.log('\n战斗开始！\n');
-	
+
 	// 启动战斗 - gen9ou格式自带Team Preview
 	streams.omniscient.write(`>start ${JSON.stringify(spec)}\n>player p1 ${JSON.stringify(p1spec)}\n>player p2 ${JSON.stringify(p2spec)}`);
 
@@ -547,18 +560,18 @@ async function startPVEBattle() {
 		if (waitingForChoice) {
 			waitingForChoice = false;
 			try {
-			const choice = await getPlayerChoice();
-			if (choice) {
-				// 检查是否是特殊命令
-				if (choice.toLowerCase() === 'team') {
-					// 显示当前队伍状态
-					displayBattleTeamStatus(currentRequest, playerStatus);
-					waitingForChoice = true; // 重新等待输入
-				} else {
-					// 直接写入选择，不需要 >p1 前缀
-					streams.p1.write(choice);
+				const choice = await getPlayerChoice();
+				if (choice) {
+					// 检查是否是特殊命令
+					if (choice.toLowerCase() === 'team') {
+						// 显示当前队伍状态
+						displayBattleTeamStatus(currentRequest, playerStatus);
+						waitingForChoice = true; // 重新等待输入
+					} else {
+						// 直接写入选择，不需要 >p1 前缀
+						streams.p1.write(choice);
+					}
 				}
-			}
 			} catch (err) {
 				console.error('输入错误:', err);
 				waitingForChoice = true; // 重新等待输入
@@ -582,15 +595,15 @@ function displayChoices(request, battleField, opponentActive, playerBoosts, play
 			console.log('\n' + '='.repeat(50));
 			console.log('场地状态:');
 
-		if (battleField.weather) {
-			const weatherCN = translate(battleField.weather, 'weathers');
-			console.log(`   天气: ${weatherCN}`);
-		}
+			if (battleField.weather) {
+				const weatherCN = translate(battleField.weather, 'weathers');
+				console.log(`   天气: ${weatherCN}`);
+			}
 
-		if (battleField.terrain) {
-			const terrainCN = translate(battleField.terrain, 'terrains');
-			console.log(`   场地: ${terrainCN}`);
-		}
+			if (battleField.terrain) {
+				const terrainCN = translate(battleField.terrain, 'terrains');
+				console.log(`   场地: ${terrainCN}`);
+			}
 
 			if (battleField.p1Side.length > 0) {
 				const effects = battleField.p1Side.map(e => translate(e, 'moves')).join(', ');
@@ -619,27 +632,27 @@ function displayChoices(request, battleField, opponentActive, playerBoosts, play
 
 			console.log(speciesLog);
 
-		if (opponentActive.status) {
-			const statusCN = translate(opponentActive.status, 'status');
-			console.log(`   状态: ${statusCN}`);
-		}
+			if (opponentActive.status) {
+				const statusCN = translate(opponentActive.status, 'status');
+				console.log(`   状态: ${statusCN}`);
+			}
 
-		// 显示对手能力等级变化
-		if (opponentActive.boosts) {
-			const boosts = [];
-			for (const stat in opponentActive.boosts) {
-				const boost = opponentActive.boosts[stat];
-				// 只有非零的能力变化才显示
-				if (typeof boost === 'number' && boost !== 0) {
-					const statCN = translate(stat, 'boosts');
-					const sign = boost > 0 ? '+' : '';
-					boosts.push(`${statCN}${sign}${boost}`);
+			// 显示对手能力等级变化
+			if (opponentActive.boosts) {
+				const boosts = [];
+				for (const stat in opponentActive.boosts) {
+					const boost = opponentActive.boosts[stat];
+					// 只有非零的能力变化才显示
+					if (typeof boost === 'number' && boost !== 0) {
+						const statCN = translate(stat, 'boosts');
+						const sign = boost > 0 ? '+' : '';
+						boosts.push(`${statCN}${sign}${boost}`);
+					}
+				}
+				if (boosts.length > 0) {
+					console.log(`   能力变化: ${boosts.join(' ')}`);
 				}
 			}
-			if (boosts.length > 0) {
-				console.log(`   能力变化: ${boosts.join(' ')}`);
-			}
-		}
 		}
 
 		// 显示当前宝可梦
@@ -680,33 +693,33 @@ function displayChoices(request, battleField, opponentActive, playerBoosts, play
 		}
 
 		// 显示状态异常
-	if (playerStatus) {
-		const statusCN = translate(playerStatus, 'status');
-		console.log(`   状态: ${statusCN}`);
-	}
+		if (playerStatus) {
+			const statusCN = translate(playerStatus, 'status');
+			console.log(`   状态: ${statusCN}`);
+		}
 
-	// 显示能力等级变化
-	if (playerBoosts && Object.keys(playerBoosts).length > 0) {
-		const boosts = [];
-		for (const stat in playerBoosts) {
-			const boost = playerBoosts[stat];
-			// 只有非零的能力变化才显示
-			if (typeof boost === 'number' && boost !== 0) {
-				const statCN = translate(stat, 'boosts');
-				const sign = boost > 0 ? '+' : '';
-				boosts.push(`${statCN}${sign}${boost}`);
+		// 显示能力等级变化
+		if (playerBoosts && Object.keys(playerBoosts).length > 0) {
+			const boosts = [];
+			for (const stat in playerBoosts) {
+				const boost = playerBoosts[stat];
+				// 只有非零的能力变化才显示
+				if (typeof boost === 'number' && boost !== 0) {
+					const statCN = translate(stat, 'boosts');
+					const sign = boost > 0 ? '+' : '';
+					boosts.push(`${statCN}${sign}${boost}`);
+				}
+			}
+			if (boosts.length > 0) {
+				console.log(`   能力变化: ${boosts.join(' ')}`);
 			}
 		}
-		if (boosts.length > 0) {
-			console.log(`   能力变化: ${boosts.join(' ')}`);
-		}
-	}
 
-	// 显示太晶化信息
-	if (active.canTerastallize) {
-		const teraTypeCN = currentPokemon.teraType ? translate(currentPokemon.teraType, 'types') : '未知';
-		console.log(`   太晶属性: ${teraTypeCN}（可以太晶化！）`);
-	}
+		// 显示太晶化信息
+		if (active.canTerastallize) {
+			const teraTypeCN = currentPokemon.teraType ? translate(currentPokemon.teraType, 'types') : '未知';
+			console.log(`   太晶属性: ${teraTypeCN}（可以太晶化！）`);
+		}
 
 		// 显示可用招式
 		console.log('可用招式:');
@@ -719,11 +732,11 @@ function displayChoices(request, battleField, opponentActive, playerBoosts, play
 				const ppInfo = move.pp !== undefined ? ` (PP: ${move.pp}/${move.maxpp})` : '';
 				let moveInfo = `   ${index + 1}.${moveCN}`;
 
-			// 添加属性
-			if (moveData.type) {
-				const typeCN = translate(moveData.type, 'types');
-				moveInfo += ` [${typeCN}]`;
-			}
+				// 添加属性
+				if (moveData.type) {
+					const typeCN = translate(moveData.type, 'types');
+					moveInfo += ` [${typeCN}]`;
+				}
 
 				// 添加威力
 				if (moveData.basePower) {
@@ -910,12 +923,12 @@ function displayBattleTeamStatus(request, playerStatus) {
 		logInfo = `【${index + 1}】${speciesCN}${isActive}${isFainted}`;
 		logInfo += ` HP:${poke.condition}`;
 
-	// 显示状态异常
-	const displayStatus = poke.active ? playerStatus : poke.status;
-	if (displayStatus) {
-		const statusCN = translate(displayStatus, 'status');
-		logInfo += ` 状态:${statusCN}`;
-	}
+		// 显示状态异常
+		const displayStatus = poke.active ? playerStatus : poke.status;
+		if (displayStatus) {
+			const statusCN = translate(displayStatus, 'status');
+			logInfo += ` 状态:${statusCN}`;
+		}
 		console.log(logInfo);
 	});
 }
