@@ -3251,5 +3251,10 @@
     "spe": "速度",
     "accuracy": "命中",
     "evasion": "闪避"
+  },
+  "category": {
+    "Physical": "物理",
+    "Special": "特殊",
+    "Status": "变化"
   }
 }

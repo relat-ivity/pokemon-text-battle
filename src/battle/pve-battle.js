@@ -69,11 +69,19 @@ async function startPVEBattle() {
 		p1team = Sim.Teams.generate('gen9randombattle');
 	}
 
-	// 将所有宝可梦设置为50级，并设置努力值每项为85，性格统一为Hardy（勤奋）
+	// 将所有宝可梦设置为50级，并设置努力值每项为85，个体值每项为31，性格统一为Hardy（勤奋）
 	p1team = p1team.map(pokemon => ({
 		...pokemon,
 		level: 50,
 		nature: 'Hardy',
+		ivs: {
+			hp: 31,
+			atk: 31,
+			def: 31,
+			spa: 31,
+			spd: 31,
+			spe: 31
+		},
 		evs: {
 			hp: 85,
 			atk: 85,
@@ -98,11 +106,19 @@ async function startPVEBattle() {
 	while (validator.validateTeam(p2team) != null) {
 		p2team = Sim.Teams.generate('gen9randombattle');
 	}
-	// 将所有宝可梦设置为50级，并设置努力值每项为85，性格统一为Hardy（勤奋）
+	// 将所有宝可梦设置为50级，并设置努力值每项为85，个体值每项为31，性格统一为Hardy（勤奋）
 	p2team = p2team.map(pokemon => ({
 		...pokemon,
 		level: 50,
 		nature: 'Hardy',
+		ivs: {
+			hp: 31,
+			atk: 31,
+			def: 31,
+			spa: 31,
+			spd: 31,
+			spe: 31
+		},
 		evs: {
 			hp: 85,
 			atk: 85,
@@ -834,10 +850,11 @@ function displayChoices(request, battleField, opponentActive, playerBoosts, play
 				const ppInfo = move.pp !== undefined ? ` (PP: ${move.pp}/${move.maxpp})` : '';
 				let moveInfo = `   ${index + 1}.${moveCN}`;
 
-				// 添加属性
+				// 添加属性和类别
 				if (moveData.type) {
 					const typeCN = translate(moveData.type, 'types');
-					moveInfo += ` [${typeCN}]`;
+					const categoryCN = translate(moveData.category, 'category');
+					moveInfo += ` [${typeCN}/${categoryCN}]`;
 				}
 
 				// 添加威力

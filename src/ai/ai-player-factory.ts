@@ -29,7 +29,7 @@ export class AIPlayerFactory {
 	static getDefaultAI(playerStream: any, debug: boolean = false): AIPlayer {
 		return new SmartAIPlayer(playerStream, debug);
 	}
-	
+
 	/**
 	 * 显示所有可用的 AI
 	 */
@@ -39,7 +39,7 @@ export class AIPlayerFactory {
 			console.log(`    ${index + 1}. ${config.name}`);
 		});
 	}
-	
+
 	/**
 	 * 创建 AI 实例
 	 * @param type AI类型
@@ -49,7 +49,7 @@ export class AIPlayerFactory {
 	 * @param lang 语言（仅DeepSeek AI使用）
 	 */
 	static createAI(
-		type: string, 
+		type: string,
 		playerStream: any,
 		debug: boolean = false,
 		opponentTeamData: any[] | null = null,
@@ -58,13 +58,13 @@ export class AIPlayerFactory {
 		if (!config) {
 			throw new Error(`未知的 AI 类型: ${type}`);
 		}
-		
+
 		// DeepSeek AI 特殊处理：如果没有API key，降级到智能AI
 		if (type === 'deepseek_ai' && !process.env.DEEPSEEK_API_KEY) {
 			console.log('⚠ 未设置 DEEPSEEK_API_KEY，使用 SmartAI');
 			return this.getDefaultAI(playerStream, debug);
 		}
-		
+
 		try {
 			let ai: AIPlayer;
 			switch (type) {
@@ -80,7 +80,7 @@ export class AIPlayerFactory {
 				default:
 					throw new Error(`未实现的 AI 类型: ${type}`);
 			}
-			
+
 			return ai;
 		} catch (error) {
 			// 如果创建失败且不是智能AI，降级到智能AI

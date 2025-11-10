@@ -539,12 +539,17 @@ export class DeepSeekAIPlayer extends AIPlayer {
 
 			const prompt = `${battleState}\n\n${actions}\n\n你的宝可梦倒下了，请选择下一个出战的宝可梦。考虑属性克制、HP状况、特性和场上局势。只输出指令，不要解释。格式：switch X（X为宝可梦编号）`;
 
-			const systemPrompt = `你是一个宝可梦对战专家。根据当前战况，选择胜率最高的宝可梦出战。考虑：
-				1. 我方队伍的配合状态
-				2. HP状况和异常状态，以及属性克制
-				3. 特性和道具配合
-				4. 场上局势和对手状态
-				请只回答 switch X 格式，X为宝可梦编号`;
+			const systemPrompt = `你是一个宝可梦对战专家。根据当前战况，选择胜率最高的宝可梦出战。
+
+${this.getBaseSystemPrompt()}
+
+【考虑因素】
+1. 属性克制和速度优势（比较种族值）
+2. HP状况和异常状态
+3. 特性和道具配合
+4. 队伍配合和场上局势
+
+请只回答 switch X 格式，X为宝可梦编号`;
 
 			const aiResponse = await this.callDeepSeek(prompt, systemPrompt);
 
@@ -577,12 +582,18 @@ export class DeepSeekAIPlayer extends AIPlayer {
 			const battleState = this.buildBattleState(request, true);
 			const prompt = `${battleState}\n\n请分析双方队伍，选择最优的首发宝可梦顺序。考虑属性克制、速度、特性和招式配合。请直接回答顺序，格式：team 123456（数字为宝可梦编号，首发在最前）`;
 
-			const systemPrompt = `你是一个宝可梦对战专家。根据双方队伍信息，选择胜率最高的出战顺序。考虑：
-				1. 首发宝可梦应该有利于整个队伍的配合
-				2. 考虑速度优势
-				3. 考虑特性和道具的配合
-				4. 平衡队伍的攻守
-				请只回答 team 后面跟6个数字的顺序，如：team 123456。不许返回空值，也不要返回任何解释`;
+			const systemPrompt = `你是一个宝可梦对战专家。根据双方队伍信息，选择胜率最高的出战顺序。
+
+${this.getBaseSystemPrompt()}
+
+【考虑因素】
+1. 首发宝可梦的队伍配合能力
+2. 速度优势（速度种族值+26）
+3. 属性克制和招式威力
+4. 特性和道具配合
+5. 攻守平衡
+
+请只回答 team 后面跟6个数字的顺序，如：team 123456。不许返回空值，也不要返回任何解释`;
 
 			const aiResponse = await this.callDeepSeek(prompt, systemPrompt);
 			if (aiResponse) {
@@ -625,7 +636,8 @@ export class DeepSeekAIPlayer extends AIPlayer {
 					const moveData = Dex.moves.get(m.move.move);
 					const moveCN = this.translate(moveData.name, 'moves');
 					const typeCN = this.translate(moveData.type, 'types');
-					actions += `  move ${i + 1}: ${moveCN} [${typeCN}]`;
+					const categoryCN = this.translate(moveData.category, 'category');
+					actions += `  move ${i + 1}: ${moveCN} [${typeCN}/${categoryCN}]`;
 					if (moveData.basePower) actions += ` 威力:${moveData.basePower}`;
 					if (moveData.accuracy === true) {
 						actions += ` 命中:必中`;
@@ -656,39 +668,44 @@ export class DeepSeekAIPlayer extends AIPlayer {
 				});
 			}
 
-		let extraInfo = '';
-		if (active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
-			extraInfo += '\n提示: 可以在使用招式时同时太晶化（例如：move 1 terastallize）\n';
-		} else if (this.myTerastallizedPokemon !== null) {
-			const terastallizedCN = this.translate(this.myTerastallizedPokemon, 'pokemon');
-			extraInfo += `\n注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;
-		}
+			let extraInfo = '';
+			if (active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
+				extraInfo += '\n提示: 可以在使用招式时同时太晶化（例如：move 1 terastallize）\n';
+			} else if (this.myTerastallizedPokemon !== null) {
+				const terastallizedCN = this.translate(this.myTerastallizedPokemon, 'pokemon');
+				extraInfo += `\n注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;
+			}
 
 			const prompt = `${battleState}${extraInfo}\n\n${actions}\n\n请分析当前战况，选择最佳行动。只输出指令，不要解释。指令格式：move X（使用第X个招式）、move X terastallize（使用第X个招式并太晶化）、switch X（切换到第X个宝可梦）`;
 
-			const systemPrompt = `你是一个宝可梦对战专家。现在你要进行六六单打，你需要根据当前战场状态，选择胜率最高的操作：
-				考虑因素包括：
-				1. 如何和队友进行配合进攻以及防守，考虑谁辅助谁输出
-				2. 考虑双方在场宝可梦招式的威力、属性克制、命中率、当前HP状况和能力变化
-				3. 考虑双方剩余宝可梦的状态
-				4. 场地效果和天气影响
-				5. 是否需要太晶化
-				6. 必要时，需要预判对手会做出的行为
-				7. 是否需要交换宝可梦（考虑换人时机）
-				请务必只回答指令格式（X是数字）：招式指令为move X 或 move X terastallize，交换宝可梦指令为switch X`;
+			const systemPrompt = `你是一个宝可梦对战专家。现在你要进行六六单打，你需要根据当前战场状态，选择胜率最高的操作。
+
+${this.getBaseSystemPrompt()}
+
+【考虑因素】
+1. 队友配合：考虑谁辅助谁输出
+2. 伤害计算：根据种族值、威力、属性克制精确计算伤害
+3. 速度判断：比较双方速度种族值，判断先后手
+4. 剩余宝可梦状态和HP
+5. 场地效果和天气影响
+6. 太晶化时机
+7. 预判对手行为
+8. 换人时机
+
+请务必只回答指令格式（X是数字）：招式指令为move X 或 move X terastallize，交换宝可梦指令为switch X`;
 
 			const aiResponse = await this.callDeepSeek(prompt, systemPrompt);
 
 			if (aiResponse) {
 				const parsed = this.parseAIResponse(aiResponse);
 
-			if (parsed && parsed.type === 'move' && moves[parsed.index]) {
-				let choice = moves[parsed.index].choice;
-				// 只有在队伍还没有太晶化宝可梦时才能太晶化
-				if (parsed.terastallize && active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
-					choice += ' terastallize';
-				}
-				return choice;
+				if (parsed && parsed.type === 'move' && moves[parsed.index]) {
+					let choice = moves[parsed.index].choice;
+					// 只有在队伍还没有太晶化宝可梦时才能太晶化
+					if (parsed.terastallize && active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
+						choice += ' terastallize';
+					}
+					return choice;
 				}
 
 				if (parsed && parsed.type === 'switch') {
@@ -790,6 +807,12 @@ export class DeepSeekAIPlayer extends AIPlayer {
 				state += ` ${isTeamPreview ? '' : '属性:'}[${typesCN.join('/')}]`;
 			}
 
+			// 添加种族值信息
+			if (speciesData.baseStats) {
+				const stats = speciesData.baseStats;
+				state += ` 种族值:[HP${stats.hp}/攻${stats.atk}/防${stats.def}/特攻${stats.spa}/特防${stats.spd}/速${stats.spe}]`;
+			}
+
 			// 队伍预览时不显示HP和状态
 			if (!isTeamPreview && p.condition) {
 				const condition = p.condition.toString();
@@ -842,7 +865,8 @@ export class DeepSeekAIPlayer extends AIPlayer {
 					const moveData = Dex.moves.get(moveName);
 					const moveCN = this.translate(moveData.name, 'moves');
 					const typeCN = this.translate(moveData.type, 'types');
-					let moveStr = `${moveCN}[${typeCN}]`;
+					const categoryCN = this.translate(moveData.category, 'category');
+					let moveStr = `${moveCN}[${typeCN}/${categoryCN}]`;
 					if (!isTeamPreview && moveData.basePower) moveStr += `威力${moveData.basePower}`;
 					return moveStr;
 				});
@@ -868,7 +892,8 @@ export class DeepSeekAIPlayer extends AIPlayer {
 							const moveData = Dex.moves.get(move.move);
 							const moveCN = this.translate(moveData.name, 'moves');
 							const typeCN = this.translate(moveData.type, 'types');
-							state += `  ${index + 1}. ${moveCN} [${typeCN}]`;
+							const categoryCN = this.translate(moveData.category, 'category');
+							state += `  ${index + 1}. ${moveCN} [${typeCN}/${categoryCN}]`;
 							if (moveData.basePower) state += ` 威力:${moveData.basePower}`;
 							if (moveData.accuracy === true) {
 								state += ` 命中:必中`;
@@ -881,20 +906,20 @@ export class DeepSeekAIPlayer extends AIPlayer {
 					});
 				}
 
-		// 显示太晶化状态
-		if (currentPokemon.teraType) {
-			const teraTypeCN = this.translate(currentPokemon.teraType, 'types');
-			if (this.myTerastallizedPokemon === speciesName) {
-				// 当前宝可梦已经太晶化
-				state += `\n已太晶化！太晶属性: ${teraTypeCN}\n`;
-			} else if (active.canTerastallize && this.myTerastallizedPokemon === null) {
-				// 只有在队伍里还没有宝可梦太晶化时，才能太晶化
-				state += `\n可太晶化！太晶属性: ${teraTypeCN}\n`;
-			} else if (this.myTerastallizedPokemon !== null && this.myTerastallizedPokemon !== speciesName) {
-				// 队伍里已经有其他宝可梦太晶化了
-				state += `\n太晶属性: ${teraTypeCN} (队伍已使用太晶化)\n`;
-			}
-		}
+				// 显示太晶化状态
+				if (currentPokemon.teraType) {
+					const teraTypeCN = this.translate(currentPokemon.teraType, 'types');
+					if (this.myTerastallizedPokemon === speciesName) {
+						// 当前宝可梦已经太晶化
+						state += `\n已太晶化！太晶属性: ${teraTypeCN}\n`;
+					} else if (active.canTerastallize && this.myTerastallizedPokemon === null) {
+						// 只有在队伍里还没有宝可梦太晶化时，才能太晶化
+						state += `\n可太晶化！太晶属性: ${teraTypeCN}\n`;
+					} else if (this.myTerastallizedPokemon !== null && this.myTerastallizedPokemon !== speciesName) {
+						// 队伍里已经有其他宝可梦太晶化了
+						state += `\n太晶属性: ${teraTypeCN} (队伍已使用太晶化)\n`;
+					}
+				}
 			}
 		}
 
@@ -917,6 +942,12 @@ export class DeepSeekAIPlayer extends AIPlayer {
 				if (speciesData.types) {
 					const typesCN = speciesData.types.map((t: string) => this.translate(t, 'types'));
 					state += ` ${isTeamPreview ? '' : '属性:'}[${typesCN.join('/')}]`;
+				}
+
+				// 添加种族值信息
+				if (speciesData.baseStats) {
+					const stats = speciesData.baseStats;
+					state += ` 种族值:[HP${stats.hp}/攻${stats.atk}/防${stats.def}/特攻${stats.spa}/特防${stats.spd}/速${stats.spe}]`;
 				}
 
 				// 队伍预览时不显示HP和状态
@@ -974,7 +1005,8 @@ export class DeepSeekAIPlayer extends AIPlayer {
 						const moveData = Dex.moves.get(moveName);
 						const moveCN = this.translate(moveData.name, 'moves');
 						const typeCN = this.translate(moveData.type, 'types');
-						let moveStr = `${moveCN}[${typeCN}]`;
+						const categoryCN = this.translate(moveData.category, 'category');
+						let moveStr = `${moveCN}[${typeCN}/${categoryCN}]`;
 						if (!isTeamPreview && moveData.basePower) moveStr += `威力${moveData.basePower}`;
 						return moveStr;
 					});
@@ -986,6 +1018,47 @@ export class DeepSeekAIPlayer extends AIPlayer {
 		}
 
 		return state;
+	}
+
+	/**
+	 * 获取通用的系统提示词基础部分
+	 */
+	private getBaseSystemPrompt(): string {
+		return `【对战规则】
+- 所有宝可梦等级50级
+- 性格：勤奋（无属性加成/减成）
+- 个体值(IV)每项31
+- 努力值(EV)每项85
+
+【能力值计算公式(根据宝可梦规则)】
+HP = 种族值 + 86
+其他能力 = 种族值 + 31
+
+【伤害计算公式(根据宝可梦规则)】
+伤害 = ((等级×2÷5+2) × 威力 × (特)攻击÷(特)防御 ÷50 + 2) × 修正值
+修正值包括：
+- 属性一致加成(STAB)：×1.5
+- 属性克制：×2(效果绝佳) ×0.5(效果不好) ×0.25(双重抗性) ×0(无效)
+- 随机数：0.85~1.0
+- 天气/场地加成：×1.5或×0.5
+- 太晶化：属性一致时×2.0，非一致时×1.5
+
+【属性克制关系】
+效果绝佳(×2)：
+- 火→草/冰/虫/钢  水→火/地/岩  草→水/地/岩  电→水/飞
+- 冰→草/地/飞/龙  格斗→普/冰/岩/恶/钢  毒→草/妖  地→火/电/毒/岩/钢
+- 飞→草/格斗/虫  超能→格斗/毒  虫→草/超能/恶  岩→火/冰/飞/虫
+- 幽灵→超能/幽灵  龙→龙  恶→超能/幽灵  钢→冰/岩/妖  妖→格斗/龙/恶
+
+效果不好(×0.5)：
+- 火→火/水/岩/龙  水→水/草/龙  草→火/草/毒/飞/虫/龙/钢
+- 电→电/草/龙  冰→火/水/冰/钢  格斗→毒/飞/超能/虫/妖
+- 毒→毒/地/岩/幽灵  地→草/虫  飞→电/岩/钢  超能→超能/钢
+- 虫→火/格斗/毒/飞/幽灵/钢/妖  岩→格斗/地/钢  幽灵→恶
+- 龙→钢  恶→格斗/恶/妖  钢→火/水/电/钢  妖→毒/钢
+
+无效(×0)：
+- 普/格斗→幽灵  地→飞  幽灵→普  电→地  超能→恶  龙→妖`;
 	}
 
 	/**
