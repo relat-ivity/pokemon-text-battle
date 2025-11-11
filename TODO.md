@@ -1,5 +1,7 @@
 #### ✨ Enhancements
 [ ] 重构pve-battle
+[ ] 添加导入队伍对战模式
+[ ] 添加ai
 
 #### 🔧 Bugfix
 [ ] bug: 千针鱼倒下了，剩余宝可梦还在
