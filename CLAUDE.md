@@ -102,27 +102,40 @@ npm test              # 运行 deepseek 测试
 
 ### pve-battle.js 中的请求处理
 
-所有请求类型都使用统一的 `process.nextTick()` 延迟处理方式，确保当前消息批次完成后再显示选择菜单。
+请求处理分为三种情况：
 
-**处理流程：**
-1. `|request|` 消息到达 → 保存到 currentRequest
-2. 该消息批次中的其他消息处理和显示（对手招式、伤害、倒下等）
-3. 事件循环下一个 tick → `process.nextTick()` 触发，显示选择菜单
+**1. teamPreview（队伍预览）：**
+- 收到后立即处理（发送队伍顺序到 Showdown）
+- 这是初始化消息，不会与其他消息混淆
 
-这种方式解决了 request 消息比 move 消息更早到达导致的显示格式混乱问题，所有请求类型都遵循同样的逻辑。
+**2. forceSwitch（强制切换）：**
+- 当收到 `|request|` 消息 → 保存到 `currentRequest`
+- 使用 `process.nextTick()` 注册延迟处理回调
+- 两种情况：
+  - 正常情况：`|turn|` 消息到达时（第 190-203 行），检查并处理保存的 forceSwitch 请求
+  - 异常情况：没有 `|turn|` 消息（刚上场就倒下），`process.nextTick()` 的延迟回调会处理它
 
-**关键处理代码（第 195-255 行）：**
-- `request.wait` → 立即显示等待消息（不需要延迟）
-- `request.teamPreview` → **使用 `process.nextTick()` 延迟发送队伍顺序**
-- `request.forceSwitch` → **使用 `process.nextTick()` 延迟显示切换选项**
-- `request.active` → **使用 `process.nextTick()` 延迟显示招式选项**
+**3. active（普通招式）：**
+- 当收到 `|request|` 消息 → 保存到 `currentRequest`
+- 等待 `|turn|` 消息到达后（第 190-203 行）处理
 
-### 回合处理（第 182-192 行）
+这种方式解决了两个问题：
+1. request 消息比 move/turn 消息更早到达导致的显示格式混乱
+2. 刚上场就倒下时没有 `|turn|` 消息导致的卡死
+
+**关键处理代码：**
+- 第 221-225 行：teamPreview 立即处理
+- 第 226-235 行：forceSwitch 保存并注册延迟处理
+- 第 236-238 行：active 只保存，不需要延迟
+- 第 190-203 行：|turn| 消息处理后统一处理保存的请求
+
+### 回合处理（第 182-203 行）
 
 - 以 `|` 开头的战斗消息在消息循环中被处理
 - `|turn|` 消息触发回合开始提示（等待用户按回车）
-- 所有选择请求（teamPreview、forceSwitch、active）通过 `process.nextTick()` 统一处理
-- 这样避免了选择菜单在消息显示过程中打断或顺序混乱的问题
+- 在 `|turn|` 消息处理后，检查是否有待处理的请求（forceSwitch 或 active）
+- 如果有，立即显示菜单并获取玩家输入
+- 这样所有当前 chunk 中的消息都已显示完毕，菜单顺序正确
 
 ## 战斗消息解析
 
@@ -233,11 +246,13 @@ UI 渲染 (ui-display.js)
 
 ## 最近的更改和已知问题
 
-请查看 TODO.md 了解当前问题和待办工作。最近的修复统一了所有请求处理的方式：
-- 使用 `process.nextTick()` 延迟处理所有类型的请求（teamPreview、forceSwitch、active）
-- 让当前消息批次先完成（包括对手招式、伤害、倒下等消息），再显示选择菜单
+请查看 TODO.md 了解当前问题和待办工作。最近的修复改进了请求处理机制：
+- **teamPreview**：收到后立即发送队伍顺序
+- **forceSwitch**：保存请求并注册 `process.nextTick()` 延迟处理回调，在 `|turn|` 消息后立即处理，或如果没有 `|turn|` 消息（刚上场就倒下）则由延迟回调处理
+- **active**：保存请求，等待 `|turn|` 消息到达后处理
+- 这样确保所有消息都显示完毕后，才显示选择菜单
 - 解决了 request 消息提前到达导致的显示格式混乱问题
-- 解决了刚上场就倒下导致的卡死问题（原本需要等待 `|turn|` 消息）
+- 解决了刚上场就倒下导致的卡死问题（有 `process.nextTick()` 作为备用）
 
 ## 测试入口
 

@@ -186,6 +186,21 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 						console.log('\n' + '='.repeat(50));
 						console.log(`第 ${turn} 回合`);
 						console.log('='.repeat(50));
+
+						// 在 turn 消息后处理待处理的请求
+						// 这时当前 chunk 中的所有消息都已显示
+						if (battleState.currentRequest && !battleState.isProcessingChoice) {
+							if (battleState.currentRequest.forceSwitch) {
+								displaySwitchChoices(battleState.currentRequest, translator);
+								handlePlayerChoice();
+								battleState.clearCurrentRequest();
+							} else if (battleState.currentRequest.active) {
+								displayChoices(battleState, battleState.currentRequest, translator, debug_mode);
+								handlePlayerChoice();
+								battleState.saveLastRequest();
+								battleState.clearCurrentRequest();
+							}
+						}
 					} else {
 						// 使用消息处理器处理其他消息
 						messageHandler.handleMessage(line);
@@ -204,17 +219,13 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 								// 等待对手
 								console.log('\n等待对手行动...');
 							} else if (request.teamPreview) {
-								// 队伍预览请求延迟处理
-								process.nextTick(async () => {
-									if (battleState.currentRequest && battleState.currentRequest.teamPreview) {
-										streams.p1.write(`team ${teamOrder}`);
-										if (debug_mode) console.log(`[Debug] 正在应用队伍顺序: ${teamOrder}`);
-										battleState.clearCurrentRequest();
-									}
-								});
+								// 队伍预览请求立即处理
+								streams.p1.write(`team ${teamOrder}`);
+								if (debug_mode) console.log(`[Debug] 正在应用队伍顺序: ${teamOrder}`);
+								battleState.clearCurrentRequest();
 							} else if (request.forceSwitch && !battleState.isProcessingChoice) {
-								// 强制切换请求延迟处理，让当前消息批次先完成
-								// 这样可以确保对手招式和倒下消息显示后再显示选择菜单
+								// 强制切换请求：保存请求，等待 |turn| 消息后处理
+								// 如果没有 |turn| 消息（比如刚上场就倒下），使用延迟处理
 								process.nextTick(async () => {
 									if (battleState.currentRequest && battleState.currentRequest.forceSwitch && !battleState.isProcessingChoice) {
 										displaySwitchChoices(battleState.currentRequest, translator);
@@ -223,16 +234,8 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 									}
 								});
 							} else if (request.active && !battleState.isProcessingChoice) {
-								// 普通招式请求延迟处理，让当前消息批次先完成
-								// 这样可以确保回合开始和对方动作都显示后再显示选择菜单
-								process.nextTick(async () => {
-									if (battleState.currentRequest && battleState.currentRequest.active && !battleState.isProcessingChoice) {
-										displayChoices(battleState, battleState.currentRequest, translator, debug_mode);
-										handlePlayerChoice();
-										battleState.saveLastRequest();
-										battleState.clearCurrentRequest();
-									}
-								});
+								// 普通招式请求：保存请求，等待 |turn| 消息后处理
+								// 不需要延迟，因为 |turn| 消息一定会到达
 							}
 						} catch (e) {
 							console.error('解析请求失败:', e.message);
