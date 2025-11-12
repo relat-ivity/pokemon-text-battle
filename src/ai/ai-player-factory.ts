@@ -6,23 +6,20 @@ import { SmartAIPlayer } from './ai-player/smart-ai-player';
 import { DeepSeekAIPlayer } from './ai-player/deepseek-ai-player';
 import { RandomAIPlayer } from './ai-player/random-ai-player';
 import { MasterAIPlayer } from './ai-player/master-ai-player';
-import { PokéChampAIPlayer } from './ai-player/pokechamp-ai-player';
 import { AIPlayer } from './ai-player';
 
 export enum AIType {
 	SMART = 1,
 	RANDOM = 2,
 	DEEPSEEK = 3,
-	MASTER = 4,
-	POKECHAMP = 5
+	MASTER = 4
 }
 
 export const AI_CONFIG = {
 	smart_ai: { id: AIType.SMART, name: 'Smart AI Player' },
 	random_ai: { id: AIType.RANDOM, name: 'Random AI Player' },
 	deepseek_ai: { id: AIType.DEEPSEEK, name: 'DeepSeek AI Player' },
-	master_ai: { id: AIType.MASTER, name: 'Master AI Player' },
-	pokechamp_ai: { id: AIType.POKECHAMP, name: 'PokéChamp AI Player (最强)' }
+	master_ai: { id: AIType.MASTER, name: 'Master AI Player' }
 } as const;
 
 /**
@@ -78,36 +75,6 @@ export class AIPlayerFactory {
 			return this.getDefaultAI(playerStream, debug);
 		}
 
-		// PokéChamp AI 特殊处理：初始化时检查API key，如果没有则降级到 Master AI
-		if (type === 'pokechamp_ai') {
-			const llmBackend = process.env.POKECHAMP_LLM_BACKEND || 'deepseek';
-			const requiresDeepSeekDirect = llmBackend === 'deepseek';
-			const requiresOpenAI = llmBackend.startsWith('gpt');
-			const requiresGemini = llmBackend.startsWith('gemini');
-			const requiresOpenRouter = (llmBackend.startsWith('deepseek') && llmBackend !== 'deepseek') ||
-			                            llmBackend.startsWith('openai/') ||
-			                            llmBackend.startsWith('anthropic/') ||
-			                            llmBackend.startsWith('meta/') ||
-			                            llmBackend.startsWith('mistral/') ||
-			                            llmBackend.startsWith('cohere/');
-
-			let missingKey = null;
-			if (requiresDeepSeekDirect && !process.env.DEEPSEEK_API_KEY) {
-				missingKey = 'DEEPSEEK_API_KEY';
-			} else if (requiresOpenAI && !process.env.OPENAI_API_KEY) {
-				missingKey = 'OPENAI_API_KEY';
-			} else if (requiresGemini && !process.env.GEMINI_API_KEY) {
-				missingKey = 'GEMINI_API_KEY';
-			} else if (requiresOpenRouter && !process.env.OPENROUTER_API_KEY) {
-				missingKey = 'OPENROUTER_API_KEY';
-			}
-
-			if (missingKey) {
-				console.log(`⚠ ${llmBackend} 需要 ${missingKey}，降级到 Master AI`);
-				return this.getMasterAI(playerStream, debug);
-			}
-		}
-
 		try {
 			let ai: AIPlayer;
 			switch (type) {
@@ -122,13 +89,6 @@ export class AIPlayerFactory {
 					break;
 				case 'master_ai':
 					ai = new MasterAIPlayer(playerStream, debug);
-					break;
-				case 'pokechamp_ai':
-					// Support configurable LLM backend via environment variable
-					// Default: deepseek (cheapest and fastest)
-					// Options: deepseek, gpt-4o, gpt-4o-mini, gemini-2.5-flash, deepseek-ai/deepseek-llm-67b-chat, ollama/llama3.1:8b, etc.
-					const llmBackend = process.env.POKECHAMP_LLM_BACKEND || 'deepseek';
-					ai = new PokéChampAIPlayer(playerStream, llmBackend, debug);
 					break;
 				default:
 					throw new Error(`未实现的 AI 类型: ${type}`);
@@ -145,4 +105,3 @@ export class AIPlayerFactory {
 		}
 	}
 }
-
