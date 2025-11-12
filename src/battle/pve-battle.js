@@ -338,7 +338,7 @@ async function startPVEBattle() {
 	}
 
 	console.log(`\n✓ 已创建对手: ${actualOpponentName}`);
-	if (warningMessage) {
+	if (debug_mode && warningMessage) {
 		console.log(warningMessage);
 	}
 

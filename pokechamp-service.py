@@ -29,29 +29,42 @@ import random
 # Add pokechamp to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'pokechamp-ai'))
 
-# Try to import PokéChamp components
+# Try to import OpenAI (for DeepSeek support via OpenAI SDK)
+try:
+    from openai import OpenAI
+    has_openai = True
+except ImportError:
+    has_openai = False
+
+# Try to import PokéChamp components (optional - service uses local strategy evaluation)
 try:
     from pokechamp.gpt_player import GPTPlayer
     from pokechamp.gemini_player import GeminiPlayer
     from pokechamp.llama_player import LlamaPlayer
     from pokechamp.ollama_player import OllamaPlayer
     from pokechamp.openrouter_player import OpenRouterPlayer
+    has_llm_players = True
 except ImportError as e:
-    print(f"Warning: Could not import PokéChamp components: {e}", file=sys.stderr)
+    # Note: This is not fatal. The service can still work with local strategic evaluation.
+    # To enable LLM backends, install required packages: pip install openai google-genai ollama requests
+    if os.getenv('POKECHAMP_DEBUG'):
+        print(f"Info: LLM player imports not available (optional): {e}", file=sys.stderr)
     GPTPlayer = None
     GeminiPlayer = None
     LlamaPlayer = None
     OllamaPlayer = None
     OpenRouterPlayer = None
+    has_llm_players = False
 
 # Global AI instance
 ai_instance = None
 llm_backend_config = None
+deepseek_client = None
 
 
 def initialize_ai(llm_backend: str, api_key: str = None) -> dict:
     """Initialize the AI player with specified LLM backend"""
-    global ai_instance, llm_backend_config
+    global ai_instance, llm_backend_config, deepseek_client
 
     try:
         llm_backend_config = {
@@ -61,9 +74,24 @@ def initialize_ai(llm_backend: str, api_key: str = None) -> dict:
 
         # Validate backend and check for required API keys
         if llm_backend == "deepseek":
-            # DeepSeek direct API - require DEEPSEEK_API_KEY
-            if not api_key and "DEEPSEEK_API_KEY" not in os.environ:
+            # DeepSeek direct API - require DEEPSEEK_API_KEY and openai package
+            if not has_openai:
+                return {"status": "error", "message": "openai package required for DeepSeek backend. Install with: pip install openai"}
+
+            deepseek_key = api_key or os.environ.get("DEEPSEEK_API_KEY")
+            if not deepseek_key:
                 return {"status": "error", "message": "DEEPSEEK_API_KEY not set. Please set DEEPSEEK_API_KEY environment variable."}
+
+            # Initialize DeepSeek client using OpenAI SDK
+            try:
+                deepseek_client = OpenAI(
+                    api_key=deepseek_key,
+                    base_url="https://api.deepseek.com"
+                )
+                if os.getenv('POKECHAMP_DEBUG'):
+                    print("[PokéChamp] DeepSeek client initialized", file=sys.stderr)
+            except Exception as e:
+                return {"status": "error", "message": f"Failed to initialize DeepSeek client: {str(e)}"}
 
         elif llm_backend.startswith("gpt"):
             # OpenAI models - require OPENAI_API_KEY
@@ -75,7 +103,7 @@ def initialize_ai(llm_backend: str, api_key: str = None) -> dict:
             if not api_key and "GEMINI_API_KEY" not in os.environ:
                 return {"status": "error", "message": "GEMINI_API_KEY not set. Please set GEMINI_API_KEY environment variable."}
 
-        elif llm_backend.startswith("deepseek") or llm_backend.startswith("openai/") or llm_backend.startswith("anthropic/") or \
+        elif llm_backend.startswith("openai/") or llm_backend.startswith("anthropic/") or \
              llm_backend.startswith("meta/") or llm_backend.startswith("mistral/") or llm_backend.startswith("cohere/"):
             # OpenRouter-based models - require OPENROUTER_API_KEY
             if not api_key and "OPENROUTER_API_KEY" not in os.environ:
@@ -85,7 +113,7 @@ def initialize_ai(llm_backend: str, api_key: str = None) -> dict:
             # Local models - no API key required
             pass
 
-        # AI initialized successfully - actual decision-making uses strategic evaluation
+        # AI initialized successfully
         return {"status": "ok", "message": f"AI initialized with {llm_backend}"}
 
     except Exception as e:
@@ -123,6 +151,80 @@ def evaluate_move(move_data: dict, opponent_pokemon: dict = None) -> float:
         score = 0
 
     return max(0, min(100, score))
+
+
+def choose_move_with_deepseek(request: dict) -> dict:
+    """
+    Choose the best move using DeepSeek LLM
+    Falls back to strategic evaluation if LLM call fails
+    """
+    global deepseek_client
+
+    if not deepseek_client:
+        # Fall back to local strategy if client not initialized
+        return choose_best_move(request)
+
+    try:
+        # Extract battle state for context
+        active = request.get("active", [])
+        if not active or not active[0]:
+            return choose_best_move(request)
+
+        active_pokemon = active[0]
+        moves = active_pokemon.get("moves", [])
+
+        if not moves:
+            return choose_best_move(request)
+
+        # Format move options for LLM
+        move_descriptions = []
+        for i, move in enumerate(moves):
+            if not move.get("disabled"):
+                move_name = move.get("move", f"Move {i+1}")
+                power = move.get("power", "?")
+                accuracy = move.get("accuracy", "?")
+                move_descriptions.append(f"{i+1}. {move_name} (Power: {power}, Accuracy: {accuracy}%)")
+
+        if not move_descriptions:
+            return choose_best_move(request)
+
+        prompt = f"""You are a Pokemon Showdown battle AI. Given the available moves, choose the best move to use.
+
+Available moves:
+{chr(10).join(move_descriptions)}
+
+Respond with ONLY the move number (e.g., "1", "2", "3", etc.) and nothing else."""
+
+        response = deepseek_client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are a Pokemon battle strategist. Respond with only a number."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=10
+        )
+
+        # Parse response
+        try:
+            move_choice = int(response.choices[0].message.content.strip())
+            if 1 <= move_choice <= len(moves):
+                return {
+                    "status": "ok",
+                    "choice": f"move {move_choice}",
+                    "reasoning": f"Chosen by DeepSeek AI"
+                }
+        except (ValueError, IndexError):
+            pass
+
+        # Fall back to strategic evaluation if LLM parsing fails
+        return choose_best_move(request)
+
+    except Exception as e:
+        # Fall back to strategic evaluation on any LLM error
+        if os.getenv('POKECHAMP_DEBUG'):
+            print(f"[PokéChamp] DeepSeek move selection failed: {str(e)}", file=sys.stderr)
+        return choose_best_move(request)
 
 
 def choose_best_move(request: dict) -> dict:
@@ -290,7 +392,11 @@ def main():
 
                 elif action == "choose_move":
                     request = command.get("request", {})
-                    result = choose_best_move(request)
+                    # Use DeepSeek if initialized, otherwise fall back to strategic evaluation
+                    if llm_backend_config and llm_backend_config.get("backend") == "deepseek" and deepseek_client:
+                        result = choose_move_with_deepseek(request)
+                    else:
+                        result = choose_best_move(request)
 
                 elif action == "choose_switch":
                     request = command.get("request", {})

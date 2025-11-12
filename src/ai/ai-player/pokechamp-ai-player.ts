@@ -47,62 +47,111 @@ export class PokéChampAIPlayer extends AIPlayer {
 		}
 
 		return new Promise((resolve, reject) => {
-			try {
-				const servicePath = path.join(__dirname, '../../..', 'pokechamp-service.py');
+			const tryStartWithCommand = (pythonCmd: string) => {
+				try {
+					const servicePath = path.join(__dirname, '../../..', 'pokechamp-service.py');
+					console.log('[PokéChamp] Starting service from:', servicePath);
+					console.log('[PokéChamp] Using LLM backend:', this.llmBackend);
+					console.log('[PokéChamp] Attempting to spawn with:', pythonCmd);
 
-				this.serviceProcess = spawn('python3', [servicePath], {
-					stdio: ['pipe', 'pipe', 'pipe'],
-					cwd: path.join(__dirname, '../../..')
-				});
+					this.serviceProcess = spawn(pythonCmd, [servicePath], {
+						stdio: ['pipe', 'pipe', 'pipe'],
+						cwd: path.join(__dirname, '../../..')
+					});
 
-				if (!this.serviceProcess.stdout || !this.serviceProcess.stderr) {
-					throw new Error('Failed to create service process');
-				}
+					if (!this.serviceProcess.stdout || !this.serviceProcess.stderr) {
+						throw new Error('Failed to create service process');
+					}
 
-				// 处理 stdout
-				this.serviceProcess.stdout.on('data', (data: Buffer) => {
-					this.responseBuffer += data.toString();
-					const lines = this.responseBuffer.split('\n');
-					this.responseBuffer = lines[lines.length - 1];
+					// 处理进程错误
+					this.serviceProcess.on('error', (error: Error) => {
+						console.error('❌ [PokéChamp] Process error:', error.message);
+						// 如果 python 失败，尝试 python3
+						if (pythonCmd === 'python') {
+							console.log('[PokéChamp] python3 failed, trying python...');
+							tryStartWithCommand('python3');
+						} else {
+							reject(error);
+						}
+					});
 
-					for (let i = 0; i < lines.length - 1; i++) {
-						const line = lines[i].trim();
-						if (line && this.pendingResponse) {
-							try {
-								const response = JSON.parse(line);
-								this.pendingResponse(response);
-								this.pendingResponse = null;
-							} catch (e) {
-								if (this.debug) console.error('[PokéChamp] JSON parse error:', e);
+					// 处理进程退出
+					this.serviceProcess.on('exit', (code: number | null, signal: string | null) => {
+						if (code !== 0 && code !== null) {
+							const message = `PokéChamp service exited with code ${code}`;
+							console.error('❌ [PokéChamp]', message);
+							// 如果 python 失败，尝试 python3
+							if (pythonCmd === 'python') {
+								console.log('[PokéChamp] python3 failed, trying python...');
+								tryStartWithCommand('python3');
+							} else {
+								reject(new Error(message));
 							}
 						}
-					}
-				});
+					});
 
-				// 处理错误输出
-				this.serviceProcess.stderr?.on('data', (data: Buffer) => {
-					if (this.debug) {
-						console.error('[PokéChamp Service Error]', data.toString());
-					}
-				});
+					// 处理 stdout
+					this.serviceProcess.stdout.on('data', (data: Buffer) => {
+						const output = data.toString();
+						if (this.debug) console.log('[PokéChamp stdout]', output);
 
-				// 初始化 AI
-				this.sendCommand({
-					action: 'init',
-					backend: this.llmBackend
-				}).then((result: any) => {
-					if (result.status === 'ok') {
-						this.initialized = true;
-						if (this.debug) console.log('[PokéChamp] Service initialized with backend:', this.llmBackend);
-						resolve();
+						this.responseBuffer += output;
+						const lines = this.responseBuffer.split('\n');
+						this.responseBuffer = lines[lines.length - 1];
+
+						for (let i = 0; i < lines.length - 1; i++) {
+							const line = lines[i].trim();
+							if (line && this.pendingResponse) {
+								try {
+									const response = JSON.parse(line);
+									this.pendingResponse(response);
+									this.pendingResponse = null;
+								} catch (e) {
+									console.error('❌ [PokéChamp] JSON parse error:', e);
+								}
+							}
+						}
+					});
+
+					// 处理错误输出
+					this.serviceProcess.stderr?.on('data', (data: Buffer) => {
+						const errOutput = data.toString();
+						console.error('❌ [PokéChamp Service Error]', errOutput);
+					});
+
+					// 初始化 AI
+					console.log('[PokéChamp] Sending init command...');
+					this.sendCommand({
+						action: 'init',
+						backend: this.llmBackend
+					}).then((result: any) => {
+						if (result.status === 'ok') {
+							this.initialized = true;
+							console.log('✓ [PokéChamp] Service initialized with backend:', this.llmBackend);
+							resolve();
+						} else {
+							const errMsg = `PokéChamp init failed: ${result.message}`;
+							console.error('❌', errMsg);
+							reject(new Error(errMsg));
+						}
+					}).catch((error: any) => {
+						console.error('❌ [PokéChamp] Init command error:', error.message);
+						reject(error);
+					});
+
+				} catch (error) {
+					console.error('❌ [PokéChamp] Spawn error:', error);
+					// 如果 python 失败，尝试 python3
+					if (pythonCmd === 'python') {
+						console.log('[PokéChamp] python3 failed, trying python...');
+						tryStartWithCommand('python3');
 					} else {
-						reject(new Error(`PokéChamp init failed: ${result.message}`));
+						reject(error);
 					}
-				}).catch(reject);
+				}
+			};
 
-			} catch (error) {
-				reject(error);
-			}
+			tryStartWithCommand('python');
 		});
 	}
 
@@ -112,7 +161,9 @@ export class PokéChampAIPlayer extends AIPlayer {
 	private sendCommand(command: AnyObject): Promise<any> {
 		return new Promise((resolve, reject) => {
 			if (!this.serviceProcess?.stdin) {
-				reject(new Error('Service not running'));
+				const errMsg = 'Service not running or stdin is not available';
+				console.error('❌ [PokéChamp]', errMsg);
+				reject(new Error(errMsg));
 				return;
 			}
 
@@ -120,12 +171,18 @@ export class PokéChampAIPlayer extends AIPlayer {
 
 			const timeout = setTimeout(() => {
 				this.pendingResponse = null;
-				reject(new Error('PokéChamp service timeout'));
+				const errMsg = `PokéChamp service timeout (60s) for action: ${command.action}`;
+				console.error('❌ [PokéChamp]', errMsg);
+				reject(new Error(errMsg));
 			}, 60000); // 60秒超时（考虑到 LLM API 调用延迟）
 
-			this.serviceProcess.stdin.write(JSON.stringify(command) + '\n', (err) => {
+			const commandStr = JSON.stringify(command);
+			if (this.debug) console.log('[PokéChamp] Sending command:', commandStr);
+
+			this.serviceProcess.stdin.write(commandStr + '\n', (err) => {
 				if (err) {
 					clearTimeout(timeout);
+					console.error('❌ [PokéChamp] stdin write error:', err.message);
 					reject(err);
 				}
 			});
@@ -187,11 +244,13 @@ export class PokéChampAIPlayer extends AIPlayer {
 	private async initializeAndChoose(callback: () => Promise<void>): Promise<void> {
 		try {
 			if (!this.initialized) {
+				console.log('[PokéChamp] Initializing service...');
 				await this.startService();
+				console.log('[PokéChamp] Service initialization complete');
 			}
 			await callback();
-		} catch (error) {
-			console.error('❌ [PokéChamp] Initialization or execution error:', error);
+		} catch (error: any) {
+			console.error('❌ [PokéChamp] Initialization or execution error:', error?.message || error);
 		}
 	}
 
