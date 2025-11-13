@@ -305,6 +305,7 @@ function validateChoice(input, request) {
  */
 function handleMessage(data) {
     const message = data.toString();
+    console.log(`[DEBUG] ${message}`);
 
     // 分割消息（一个消息可能包含多行）
     const lines = message.split('\n');

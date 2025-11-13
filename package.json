@@ -9,7 +9,7 @@
   "scripts": {
     "start": "npm run build && node index.js",
     "battle": "npm run build && node src/battle_local/pve-battle.js",
-    "pokechamp": "npm run build && node src/battle_on_server/pokechamp-local-battle.js",
+    "pokechamp": "npm run build && node src/battle_on_server/pve-server-battle.js",
     "pokechamp:all": "npm run build && node start-pokechamp-battle.js",
     "server": "node start-local-server.js",
     "test": "node tests/test-deepseek.js",

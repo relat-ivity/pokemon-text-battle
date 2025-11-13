@@ -59,7 +59,7 @@ npm run build
 ```bash
 npm start
 # 或
-node src/battle/pve-battle.js
+node src/battle_local/pve-battle.js
 ```
 
 **特点：**
@@ -141,7 +141,6 @@ npm run pokechamp:all
 npm run server
 
 # 终端 2 - 启动 Python 服务
-cd pokechamp-ai
 python pokechamp-service.py
 
 # 终端 3 - 启动玩家客户端

@@ -127,7 +127,6 @@ function startPythonService() {
             log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
 
             pythonProcess = spawn(pythonCmd, ['pokechamp-service.py'], {
-                cwd: path.join(__dirname, 'pokechamp-ai'),
                 stdio: ['ignore', 'pipe', 'pipe'],
                 shell: true
             });
@@ -200,7 +199,7 @@ function startClient() {
         log(colors.bright, '', '玩家客户端已启动，请开始游戏！');
         log(colors.bright, '', '='.repeat(60) + '\n');
 
-        clientProcess = spawn('node', ['dist/battle/pokechamp-local-battle.js'], {
+        clientProcess = spawn('node', ['src/battle_on_server/pve-server-battle.js'], {
             stdio: 'inherit',
             shell: true
         });

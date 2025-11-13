@@ -5,5 +5,5 @@
  */
 
 // 直接启动对战
-require('./src/battle/pve-battle');
+require('./src/battle_local/pve-battle');
 
