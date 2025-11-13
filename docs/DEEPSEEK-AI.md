@@ -21,36 +21,62 @@ npm install
 
 ### 3. 设置环境变量
 
-#### Windows (PowerShell)
+#### 方法一：使用 .env 文件（推荐）
+
+这是最简单的方法，无需设置系统环境变量：
+
+1. 复制 `.env.example` 文件为 `.env`：
+   ```bash
+   copy .env.example .env
+   ```
+
+2. 用文本编辑器打开 `.env` 文件，将 `your_api_key_here` 替换为你的实际 API 密钥：
+   ```
+   DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+3. 保存文件，直接运行即可：
+   ```bash
+   npm start
+   ```
+
+#### 方法二：临时设置环境变量（当前会话有效）
+
+**Windows (PowerShell):**
 ```powershell
 $env:DEEPSEEK_API_KEY="你的API密钥"
-node pve-battle.js
+npm start
 ```
 
-#### Windows (CMD)
+**Windows (CMD):**
 ```cmd
 set DEEPSEEK_API_KEY=你的API密钥
-node pve-battle.js
+npm start
 ```
 
-#### Linux / macOS
+**Linux / macOS:**
 ```bash
 export DEEPSEEK_API_KEY="你的API密钥"
-node pve-battle.js
+npm start
 ```
 
-#### 永久设置（推荐）
+#### 方法三：永久设置系统环境变量
 
 **Windows:**
 1. 右键"此电脑" → 属性 → 高级系统设置 → 环境变量
 2. 在"用户变量"中点击"新建"
 3. 变量名：`DEEPSEEK_API_KEY`
 4. 变量值：你的 API 密钥
+5. **重要**：设置完成后，必须**重启所有终端窗口和 IDE**（如 VS Code、WebStorm 等），环境变量才会生效
 
 **Linux / macOS:**
 在 `~/.bashrc` 或 `~/.zshrc` 中添加：
 ```bash
 export DEEPSEEK_API_KEY="你的API密钥"
+```
+然后运行：
+```bash
+source ~/.bashrc  # 或 source ~/.zshrc
 ```
 
 ## 使用方法
@@ -142,7 +168,22 @@ node pve-battle.js
 ## 故障排除
 
 ### 问题：显示"未设置 DEEPSEEK_API_KEY"
-**解决方案**：按照上述步骤设置环境变量
+
+**解决方案（按优先级排序）**：
+
+1. **使用 .env 文件（推荐）**
+   - 确保项目根目录存在 `.env` 文件
+   - 检查文件内容格式是否正确：`DEEPSEEK_API_KEY=你的密钥`
+   - 注意：等号两边不要有空格，密钥不需要引号
+
+2. **临时设置环境变量**
+   - PowerShell: `$env:DEEPSEEK_API_KEY="你的密钥"; npm start`
+   - CMD: `set DEEPSEEK_API_KEY=你的密钥 && npm start`
+
+3. **系统环境变量未生效**
+   - Windows：设置系统环境变量后，必须**完全关闭并重新打开**所有终端和 IDE（如 VS Code、WebStorm）
+   - 简单的"新建终端"不会加载新的环境变量
+   - 可以在终端中运行 `echo %DEEPSEEK_API_KEY%`（CMD）或 `echo $env:DEEPSEEK_API_KEY`（PowerShell）验证是否生效
 
 ### 问题：API 调用失败
 **解决方案**：

@@ -3,6 +3,10 @@
  * 使用 DeepSeek API 进行智能对战决策
  */
 
+import * as dotenv from 'dotenv';
+// 加载 .env 文件中的环境变量
+dotenv.config();
+
 import { AIPlayer } from '../ai-player';
 import { Dex } from 'pokemon-showdown/dist/sim/dex';
 import { Translator } from '../../support/translator';
