@@ -1,7 +1,7 @@
 /**
  * PVE 对战脚本 - 玩家 vs AI
  * 使用 Pokemon Showdown 模拟器
- *
+ * 
  * 运行方式：npm start 或 node src/battle/pve-battle.js
  */
 
@@ -9,14 +9,14 @@ const Sim = require('pokemon-showdown');
 const { AIPlayerFactory } = require('../../dist/ai/ai-player-factory');
 const readline = require('readline');
 const { Translator } = require('../../dist/support/translator');
-const { BattleState } = require('./battle-state');
-const { BattleMessageHandler } = require('./message-handler');
+const { BattleState } = require('../battle_common/battle-state');
+const { BattleMessageHandler } = require('../battle_common/message-handler');
 const {
 	displayTeamInfo,
 	displayChoices,
 	displaySwitchChoices,
 	displayBattleTeamStatus
-} = require('./ui-display');
+} = require('../battle_common/ui-display');
 
 // debug设置
 let debug_mode = false;
@@ -177,57 +177,57 @@ function createPlayerChoiceHandler(battleState, streams) {
 async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOrder) {
 	const messageHandler = new BattleMessageHandler(battleState, translator, debug_mode);
 
-	try {
-		for await (const chunk of streams.p1) {
-			const lines = chunk.split('\n');
+		try {
+			for await (const chunk of streams.p1) {
+				const lines = chunk.split('\n');
 
-			for (const line of lines) {
+				for (const line of lines) {
 				// 处理战斗消息
-				if (line.startsWith('|')) {
+					if (line.startsWith('|')) {
 					// 特殊处理回合消息（需要等待用户按回车）
-					if (line.startsWith('|turn|')) {
-						const turn = parseInt(line.split('|turn|')[1]);
-						await prompt('\n[按回车进行下一回合]');
+						if (line.startsWith('|turn|')) {
+							const turn = parseInt(line.split('|turn|')[1]);
+							await prompt('\n[按回车进行下一回合]');
 						battleState.startTurn(turn);
-						console.log('\n' + '='.repeat(50));
-						console.log(`第 ${turn} 回合`);
-						console.log('='.repeat(50));
+							console.log('\n' + '='.repeat(50));
+							console.log(`第 ${turn} 回合`);
+							console.log('='.repeat(50));
 
 						// 在 turn 消息后处理待处理的请求
 						// 这时当前 chunk 中的所有消息都已显示
 						if (battleState.currentRequest && !battleState.isProcessingChoice) {
 							if (battleState.currentRequest.forceSwitch) {
 								displaySwitchChoices(battleState.currentRequest, translator);
-								handlePlayerChoice();
+									handlePlayerChoice();
 								battleState.clearCurrentRequest();
 							} else if (battleState.currentRequest.active) {
 								displayChoices(battleState, battleState.currentRequest, translator, debug_mode);
-								handlePlayerChoice();
+									handlePlayerChoice();
 								battleState.saveLastRequest();
 								battleState.clearCurrentRequest();
 							}
 						}
-					} else {
+									} else {
 						// 使用消息处理器处理其他消息
 						messageHandler.handleMessage(line);
+						}
 					}
-				}
 
-				// 处理选择请求
-				if (line.includes('|request|')) {
-					const requestData = line.split('|request|')[1];
-					if (requestData) {
-						try {
+					// 处理选择请求
+					if (line.includes('|request|')) {
+						const requestData = line.split('|request|')[1];
+						if (requestData) {
+							try {
 							const request = JSON.parse(requestData);
 							battleState.setCurrentRequest(request);
 
 							if (request.wait) {
-								// 等待对手
-								console.log('\n等待对手行动...');
+									// 等待对手
+									console.log('\n等待对手行动...');
 							} else if (request.teamPreview) {
 								// 队伍预览请求立即处理
-								streams.p1.write(`team ${teamOrder}`);
-								if (debug_mode) console.log(`[Debug] 正在应用队伍顺序: ${teamOrder}`);
+									streams.p1.write(`team ${teamOrder}`);
+									if (debug_mode) console.log(`[Debug] 正在应用队伍顺序: ${teamOrder}`);
 								battleState.clearCurrentRequest();
 							} else if (request.forceSwitch && !battleState.isProcessingChoice) {
 								// 强制切换请求：保存请求，等待 |turn| 消息后处理
@@ -243,28 +243,28 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 								// 普通招式请求：保存请求，等待 |turn| 消息后处理
 								// 不需要延迟，因为 |turn| 消息一定会到达
 							}
-						} catch (e) {
-							console.error('解析请求失败:', e.message);
+							} catch (e) {
+								console.error('解析请求失败:', e.message);
+							}
+						}
+					}
+
+					// 处理错误
+					if (line.startsWith('|error|')) {
+						const errorMsg = line.replace('|error|', '');
+						console.log('错误:', errorMsg);
+					battleState.setCurrentRequest(battleState.lastRequest);
+						// 如果有无效选择错误，只提示错误，不重新显示对战信息
+					if (errorMsg.includes('[Invalid choice]') && battleState.currentRequest) {
+							console.log('请重新输入有效的指令');
+							// 直接触发玩家选择处理
+							handlePlayerChoice();
 						}
 					}
 				}
-
-				// 处理错误
-				if (line.startsWith('|error|')) {
-					const errorMsg = line.replace('|error|', '');
-					console.log('错误:', errorMsg);
-					battleState.setCurrentRequest(battleState.lastRequest);
-					// 如果有无效选择错误，只提示错误，不重新显示对战信息
-					if (errorMsg.includes('[Invalid choice]') && battleState.currentRequest) {
-						console.log('请重新输入有效的指令');
-						// 直接触发玩家选择处理
-						handlePlayerChoice();
-					}
-				}
 			}
-		}
-	} catch (err) {
-		console.error('玩家流错误:', err);
+		} catch (err) {
+			console.error('玩家流错误:', err);
 		battleState.endBattle();
 	}
 }
@@ -350,7 +350,7 @@ async function startPVEBattle() {
 	});
 	console.log('✓ AI已启动');
 
-	// 显示队伍信息
+// 显示队伍信息
 	await prompt('\n按回车开始生成队伍...');
 	displayTeamInfo(p1team, playerName, translator);
 

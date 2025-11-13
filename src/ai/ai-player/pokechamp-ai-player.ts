@@ -45,108 +45,93 @@ export class PokéChampAIPlayer extends AIPlayer {
 		}
 
 		return new Promise((resolve, reject) => {
-			const tryStartWithCommand = (pythonCmd: string) => {
-				try {
-					const servicePath = path.join(__dirname, '../../..', 'pokechamp-ai', 'pokechamp-service.py');
-					console.log('[PokéChamp] Starting service from:', servicePath);
-					console.log('[PokéChamp] Attempting to spawn with:', pythonCmd);
+			try {
+				const servicePath = path.join(__dirname, '../../..', 'pokechamp-service.py');
+				console.log('[PokéChamp] Starting service from:', servicePath);
+				console.log('[PokéChamp] Using Python command: python');
 
-					this.serviceProcess = spawn(pythonCmd, [servicePath], {
-						stdio: ['pipe', 'pipe', 'pipe'],
-						cwd: path.join(__dirname, '../../..')
-					});
+				this.serviceProcess = spawn('python', [servicePath], {
+					stdio: ['pipe', 'pipe', 'pipe'],
+					cwd: path.join(__dirname, '../../..')
+				});
 
-					if (!this.serviceProcess.stdout || !this.serviceProcess.stderr) {
-						throw new Error('Failed to create service process');
+				if (!this.serviceProcess.stdout || !this.serviceProcess.stderr) {
+					throw new Error('Failed to create service process');
+				}
+
+				// 处理进程错误
+				this.serviceProcess.on('error', (error: Error) => {
+					console.error('❌ [PokéChamp] Process error:', error.message);
+					console.error('提示：请确保已安装 Python 并添加到 PATH 环境变量');
+					reject(error);
+				});
+
+				// 处理进程退出
+				this.serviceProcess.on('exit', (code: number | null) => {
+					if (code !== 0 && code !== null) {
+						const message = `PokéChamp service exited with code ${code}`;
+						console.error('❌ [PokéChamp]', message);
+						reject(new Error(message));
 					}
+				});
 
-					// 处理进程错误
-					this.serviceProcess.on('error', (error: Error) => {
-						console.error('❌ [PokéChamp] Process error:', error.message);
-						if (pythonCmd === 'python') {
-							console.log('[PokéChamp] python failed, trying python3...');
-							tryStartWithCommand('python3');
-						} else {
-							reject(error);
-						}
-					});
+				// 处理标准输出
+				this.serviceProcess.stdout.on('data', (data: Buffer) => {
+					const output = data.toString();
+					if (this.debug) console.log('[PokéChamp stdout]', output);
 
-					// 处理进程退出
-					this.serviceProcess.on('exit', (code: number | null, signal: string | null) => {
-						if (code !== 0 && code !== null) {
-							const message = `PokéChamp service exited with code ${code}`;
-							console.error('❌ [PokéChamp]', message);
-							if (pythonCmd === 'python') {
-								console.log('[PokéChamp] python failed, trying python3...');
-								tryStartWithCommand('python3');
-							} else {
-								reject(new Error(message));
+					this.responseBuffer += output;
+					const lines = this.responseBuffer.split('\n');
+					this.responseBuffer = lines[lines.length - 1];
+
+				for (let i = 0; i < lines.length - 1; i++) {
+					const line = lines[i].trim();
+					// 只解析看起来像 JSON 的行（以 { 开头）
+					if (line && line.startsWith('{') && this.pendingResponse) {
+						try {
+							const response = JSON.parse(line);
+							this.pendingResponse(response);
+							this.pendingResponse = null;
+						} catch (e) {
+							// 忽略非 JSON 行的解析错误（可能是库的初始化输出）
+							if (this.debug) {
+								console.error('❌ [PokéChamp] JSON parse error (ignored):', e);
 							}
 						}
-					});
-
-					// 处理标准输出
-					this.serviceProcess.stdout.on('data', (data: Buffer) => {
-						const output = data.toString();
-						if (this.debug) console.log('[PokéChamp stdout]', output);
-
-						this.responseBuffer += output;
-						const lines = this.responseBuffer.split('\n');
-						this.responseBuffer = lines[lines.length - 1];
-
-						for (let i = 0; i < lines.length - 1; i++) {
-							const line = lines[i].trim();
-							if (line && this.pendingResponse) {
-								try {
-									const response = JSON.parse(line);
-									this.pendingResponse(response);
-									this.pendingResponse = null;
-								} catch (e) {
-									console.error('❌ [PokéChamp] JSON parse error:', e);
-								}
-							}
-						}
-					});
-
-					// 处理错误输出 - PokéChamp 的调试日志
-					this.serviceProcess.stderr?.on('data', (data: Buffer) => {
-						const errOutput = data.toString();
-						console.log('[PokéChamp]', errOutput);
-					});
-
-					// 初始化 AI
-					console.log('[PokéChamp] Sending init command...');
-					this.sendCommand({
-						action: 'init',
-						backend: this.backend
-					}).then((result: any) => {
-						if (result.status === 'ok') {
-							this.initialized = true;
-							console.log('✓ [PokéChamp] Service initialized');
-							resolve();
-						} else {
-							const errMsg = `PokéChamp init failed: ${result.message}`;
-							console.error('❌', errMsg);
-							reject(new Error(errMsg));
-						}
-					}).catch((error: any) => {
-						console.error('❌ [PokéChamp] Init command error:', error.message);
-						reject(error);
-					});
-
-				} catch (error) {
-					console.error('❌ [PokéChamp] Spawn error:', error);
-					if (pythonCmd === 'python') {
-						console.log('[PokéChamp] python failed, trying python3...');
-						tryStartWithCommand('python3');
-					} else {
-						reject(error);
 					}
 				}
-			};
+				});
 
-			// 先尝试 python 命令，失败后自动尝试 python3
-			tryStartWithCommand('python');
+				// 处理错误输出 - PokéChamp 的调试日志
+				this.serviceProcess.stderr?.on('data', (data: Buffer) => {
+					const errOutput = data.toString();
+					console.log('[PokéChamp]', errOutput);
+				});
+
+				// 初始化 AI
+				console.log('[PokéChamp] Sending init command...');
+				this.sendCommand({
+					action: 'init',
+					backend: this.backend
+				}).then((result: any) => {
+					if (result.status === 'ok') {
+						this.initialized = true;
+						console.log('✓ [PokéChamp] Service initialized');
+						resolve();
+					} else {
+						const errMsg = `PokéChamp init failed: ${result.message}`;
+						console.error('❌', errMsg);
+						reject(new Error(errMsg));
+					}
+				}).catch((error: any) => {
+					console.error('❌ [PokéChamp] Init command error:', error.message);
+					reject(error);
+				});
+
+			} catch (error) {
+				console.error('❌ [PokéChamp] Spawn error:', error);
+				reject(error);
+			}
 		});
 	}
 

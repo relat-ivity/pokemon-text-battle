@@ -18,6 +18,6 @@ module.exports = {
   AIPlayerFactory,
   
   // 对战
-  startBattle: () => require('./battle/pve-battle')
+  startBattle: () => require('./battle_local/pve-battle')
 };
 

@@ -1,7 +1,7 @@
 #### ✨ Enhancements
 [x] 重构pve-battle
 [ ] 添加导入showdown队伍配置进行对战的模式
-[ ] 添加ai
+[x] 添加ai
 
 #### 🔧 Bugfix
 [ ] bug: 如果刚上场就倒下会卡死

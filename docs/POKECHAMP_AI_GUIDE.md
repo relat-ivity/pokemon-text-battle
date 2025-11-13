@@ -11,45 +11,86 @@
 
 ## 架构
 
+### 新版架构（服务器对战模式）⭐
+
 ```
-Node.js 项目
-    ↓ (JSON 通信)
-pokechamp-service.py (Python 子进程)
-    ↓ (API 调用)
-LLM 模型 (GPT-4o, Gemini, Llama, 等)
-    ↓ (推理)
-对战决策
+Pokemon Showdown 本地服务器 (localhost:8000)
+    ↓ WebSocket 连接
+    ├── 玩家客户端 (pokechamp-local-battle.js)
+    │   - 处理玩家输入
+    │   - 显示对战状态
+    │
+    └── PokéChamp AI (pokechamp-service.py)
+        ├── poke-env 库
+        │   - 连接到本地服务器
+        │   - 维护完整的 Battle 对象
+        │
+        └── LLMPlayer (真正的 choose_move)
+            ├── Minimax 树搜索 (K=2)
+            └── LLM 评估
+                ↓ (API 调用)
+            LLM 模型 (DeepSeek, GPT-4o, Gemini, 等)
 ```
+
+**优势：**
+- ✅ PokéChamp AI 可以访问完整的 Battle 对象
+- ✅ 使用真正的 Minimax + LLM 决策算法
+- ✅ 达到 84% 的对战胜率
+- ✅ 支持一键启动脚本
 
 ### 核心文件
 
-1. **pokechamp-ai-player.ts** - TypeScript 包装器
-   - 管理 Python 子进程
-   - 处理 JSON 通信
-   - 实现 Pokemon Showdown 请求处理
+**服务器对战模式：**
 
-2. **pokechamp-service.py** - Python 服务脚本
-   - 初始化 PokéChamp AI
-   - 处理对战决策
-   - 管理 LLM API 调用
+1. **start-local-server.js** - 本地服务器启动脚本
+   - 启动 Pokemon Showdown 服务器
+   - 监听 localhost:8000
 
-3. **ai-player-factory.ts** - AI 工厂
-   - 注册 PokéChamp AI 类型
-   - 创建和管理实例
+2. **pokechamp-local-battle.js** - 玩家客户端
+   - WebSocket 连接到本地服务器
+   - 处理玩家输入和显示
+   - 实现 Pokemon Showdown 协议
+
+3. **pokechamp-service.py** - PokéChamp AI 服务
+   - 初始化 LLMPlayer
+   - 连接到本地服务器
+   - 使用完整的 Minimax + LLM 决策
+
+4. **start-pokechamp-battle.js** - 一键启动脚本
+   - 自动启动所有三个进程
+   - 管理进程生命周期
+   - 提供彩色日志输出
+
+**旧版架构（已废弃）：**
+
+- **pokechamp-ai-player.ts** - 旧版 TypeScript 包装器
+  - 尝试通过 JSON 通信调用 Python
+  - 无法提供完整的 Battle 对象
+  - 无法使用真正的 choose_move() 方法
 
 ## 使用方法
 
 ### 1. 安装依赖
 
+**推荐方式：使用 pip**
+
 ```bash
-# 安装 PokéChamp 依赖
+# 安装 PokéChamp 依赖（推荐）
+cd pokechamp-ai
+python -m pip install -r requirements.txt
+cd ..
+```
+
+**或使用 uv（可选）**
+
+```bash
+# 使用 uv 安装（某些环境可能不完整）
 cd pokechamp-ai
 uv sync
 cd ..
-
-# 或使用 pip
-pip install -r pokechamp-ai/requirements.txt
 ```
+
+**注意**：如果使用 `uv sync` 后出现 "No module named 'numpy'" 错误，请使用 pip 方法重新安装。
 
 ### 2. 配置环境变量
 
@@ -95,10 +136,38 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 默认，免费
 
 ### 3. 运行对战
 
+**重要更新：** PokéChamp AI 现在使用服务器对战模式，以支持完整的 Minimax + LLM 决策！
+
+#### 方法 A：一键启动（推荐）⭐
+
+使用自动启动脚本，一条命令启动所有服务：
+
 ```bash
-npm start
-# 选择对手时选择 "1. PokéChamp AI"
+npm run pokechamp:all
 ```
+
+脚本会自动依次启动：
+1. Pokemon Showdown 本地服务器 (localhost:8000)
+2. PokéChamp Python AI 服务
+3. 玩家对战客户端
+
+#### 方法 B：手动启动（三个终端）
+
+如果需要分别查看每个进程的日志：
+
+```bash
+# 终端 1 - 启动本地服务器
+npm run server
+
+# 终端 2 - 启动 PokéChamp Python 服务
+cd pokechamp-ai
+python pokechamp-service.py
+
+# 终端 3 - 启动玩家客户端
+npm run pokechamp
+```
+
+**注意：** 旧版本通过 `npm start` 选择 PokéChamp AI 的方式已废弃。新版本使用服务器对战模式，让 PokéChamp AI 能够使用完整的 `choose_move(battle)` 方法和 Minimax 树搜索。
 
 ## 支持的 LLM 后端
 
@@ -223,17 +292,31 @@ DEEPSEEK_API_KEY=sk-your-deepseek-api-key
 # 访问 https://platform.deepseek.com 注册并获取 API 密钥
 ```
 
-### 3. Python 模块不找到
+### 3. Python 模块不找到（如 "No module named 'numpy'"）
+
+这是最常见的问题，说明 Python 依赖未正确安装。
+
+**推荐解决方案：使用 pip 安装**
 
 ```bash
-# 确保进入 pokechamp-ai 目录并安装
+# 进入 pokechamp-ai 目录并使用 pip 安装（推荐）
+cd pokechamp-ai
+python -m pip install -r requirements.txt
+cd ..
+```
+
+**或使用 uv（如果 pip 不可用）**
+
+```bash
 cd pokechamp-ai
 uv sync
 cd ..
-
-# 或使用 pip
-pip install -r pokechamp-ai/requirements.txt
 ```
+
+**注意**：
+- 优先使用 `python -m pip install -r requirements.txt`，这是最可靠的方法
+- `uv sync` 在某些环境下可能不完整，导致缺少 numpy 等关键模块
+- 安装完成后应该看到 numpy、torch、transformers 等包被成功安装
 
 ### 4. 对战缓慢或超时
 
@@ -304,8 +387,8 @@ PokéChamp AI 通过 OpenRouter 统一访问所有 LLM 模型，只需要配置�
 OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
 POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认值
 
-# 2. 运行对战
-npm start
+# 2. 运行对战（一键启动）
+npm run pokechamp:all
 ```
 
 **优势**：

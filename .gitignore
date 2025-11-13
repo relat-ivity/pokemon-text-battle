@@ -9,4 +9,9 @@ dist/
 
 package-lock.json
 
-.claude/*
+.claude/
+
+__pycache__/
+*.pyc
+
+.vscode/

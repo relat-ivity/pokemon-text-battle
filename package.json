@@ -8,8 +8,10 @@
   },
   "scripts": {
     "start": "npm run build && node index.js",
-    "battle": "npm run build && node src/battle/pve-battle.js",
-    "simple": "npm run build && node src/battle/simple-battle.js",
+    "battle": "npm run build && node src/battle_local/pve-battle.js",
+    "pokechamp": "npm run build && node src/battle_on_server/pokechamp-local-battle.js",
+    "pokechamp:all": "npm run build && node start-pokechamp-battle.js",
+    "server": "node start-local-server.js",
     "test": "node tests/test-deepseek.js",
     "build": "tsc",
     "build:watch": "tsc --watch",
@@ -35,10 +37,12 @@
   "dependencies": {
     "axios": "^1.6.0",
     "dotenv": "^16.6.1",
-    "pokemon-showdown": "^0.11.10"
+    "pokemon-showdown": "^0.11.10",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
+    "@types/ws": "^8.5.10",
     "typescript": "^5.3.3"
   }
 }

@@ -48,12 +48,63 @@ npm run build
 
 ## 🚀 快速开始
 
-```bash
-node src/battle/pve-battle.js
+### 🎯 选择对战模式
 
-# 或者
+本项目支持**两种对战模式**：
+
+#### 模式 1：本地对战模式（推荐新手）⭐
+
+**一条命令启动，简单快捷：**
+
+```bash
 npm start
+# 或
+node src/battle/pve-battle.js
 ```
+
+**特点：**
+- ✅ 简单易用，无需额外配置
+- ✅ 支持 4 种 AI：DeepSeek AI、Master AI、智能 AI、随机 AI
+- ❌ 不支持 PokéChamp AI（PokéChamp 需要完整的 Battle 对象）
+
+#### 模式 2：服务器对战模式（PokéChamp AI 专用）🏆
+
+**方法 A：一键启动（推荐）⭐**
+
+使用自动启动脚本，一条命令启动所有服务：
+
+```bash
+npm run pokechamp:all
+```
+
+脚本会自动依次启动：
+1. Pokemon Showdown 本地服务器
+2. PokéChamp Python 服务
+3. 玩家客户端
+
+**方法 B：手动启动（三个终端）**
+
+如果需要分别查看每个进程的日志：
+
+```bash
+# 终端 1 - 启动本地服务器
+npm run server
+
+# 终端 2 - 启动 PokéChamp Python 服务
+cd pokechamp-ai
+python pokechamp-service.py
+
+# 终端 3 - 启动玩家客户端
+npm run pokechamp
+```
+
+**特点：**
+- ✅ PokéChamp AI 使用完整的 Minimax + LLM 决策（84% 胜率）
+- ✅ 支持 10+ 种 LLM 后端
+- ✅ 现在支持一键启动！
+- ⚠️ 需要 Python 环境和 `.env` 配置
+
+---
 
 ## 📖 使用说明
 
@@ -72,28 +123,34 @@ team                # 查看所有宝可梦状态
 
 项目支持 5 种 AI 对手，难度逐级递增：
 
-#### 1. PokéChamp AI 🏆 (最强！)
+#### 1. PokéChamp AI 🏆 (最强！)**仅服务器模式**
+
 ICML 2025 获奖的强大 AI，采用 Minimax 树搜索 + LLM 混合策略
 - **性能**: 84% 胜率（vs 规则类AI）
 - **支持后端**: 10+ 种 LLM（GPT-4o、Gemini、DeepSeek、本地模型等）
+- **⚠️ 注意**: 仅在服务器对战模式中可用（需要完整的 Battle 对象）
 
+**一键启动（推荐）：**
 ```bash
-# 使用默认配置（gpt-4o-mini）
-npm start
+npm run pokechamp:all
+```
 
-# 或使用 DeepSeek（最便宜）
-export POKECHAMP_LLM_BACKEND="deepseek-ai/deepseek-llm-67b-chat"
-export OPENROUTER_API_KEY="sk-or-v1-..."
-npm start
+**或手动启动（三个终端）：**
+```bash
+# 终端 1 - 启动服务器
+npm run server
 
-# 或使用本地模型（免费）
-export POKECHAMP_LLM_BACKEND="ollama/llama3.1:8b"
-npm start
+# 终端 2 - 启动 Python 服务
+cd pokechamp-ai
+python pokechamp-service.py
+
+# 终端 3 - 启动玩家客户端
+npm run pokechamp
 ```
 
 详细配置请查看 [PokéChamp AI 文档](./POKECHAMP_AI_GUIDE.md)
 
-#### 2. DeepSeek AI 💰 (性价比最高)
+#### 2. DeepSeek AI 💰 (性价比最高) **本地模式**
 使用 DeepSeek LLM 进行智能决策，成本极低
 - **成本**: $0.02/对战（约20回合）
 - **性能**: 高（接近 GPT-4）
@@ -106,7 +163,7 @@ npm start
 # 选择菜单中选择 "2. DeepSeek AI"
 ```
 
-#### 3. Master AI 🥇 (强大本地AI)
+#### 3. Master AI 🥇 (强大本地AI) **本地模式**
 高级本地策略AI，无需API密钥
 - **性能**: 强（70% 胜率 vs 智能AI）
 - **速度**: 快速（2秒/回合）
@@ -116,7 +173,7 @@ npm start
 # 选择菜单中选择 "3. Master AI (强大对手)"
 ```
 
-#### 4. 本地智能AI 🧠 (智能AI)
+#### 4. 本地智能AI 🧠 (智能AI) **本地模式**
 基于属性克制和招式评分的本地智能AI
 - **性能**: 中等（60% 胜率 vs 随机AI）
 - **速度**: 快速（1秒/回合）
@@ -126,7 +183,7 @@ npm start
 # 选择菜单中选择 "4. 本地智能AI"
 ```
 
-#### 5. 随机AI 🎲 (测试用)
+#### 5. 随机AI 🎲 (测试用) **本地模式**
 随机使用技能和换人，用于测试和学习
 
 ```bash
@@ -138,6 +195,7 @@ npm start
 
 | 特性 | 随机AI | 智能AI | Master | DeepSeek | PokéChamp |
 |------|---------|---------|---------|----------|-----------|
+| **对战模式** | 本地 | 本地 | 本地 | 本地 | **服务器** |
 | 基础策略 | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 属性克制 | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 招式评分 | ❌ | ✅ | ✅ | ✅ | ✅ |
@@ -145,6 +203,7 @@ npm start
 | Minimax搜索 | ❌ | ❌ | ❌ | ❌ | ✅ |
 | 胜率 | ~20% | ~60% | ~70% | ~80% | ~84% |
 | 成本/对战 | 免费 | 免费 | 免费 | $0.02 | $0.40 |
+| 启动命令 | `npm start` | `npm start` | `npm start` | `npm start` | 见上文 |
 
 ## 📸 对战示例
 ```txt

@@ -2,9 +2,30 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作提供指导。
 
+## CLAUDE-rule
+- 根目录不要放代码文件，只能放文档和配置文件
+- 代码文件需要有清晰的结构
+- 注意每次改动都需要更新相关文档
+
 ## 项目概述
 
-**宝可梦控制台对战** 是一个 TypeScript/JavaScript 项目，在控制台中模拟第九代宝可梦对战。玩家可以与多种 AI 对手进行对战：**PokéChamp AI**（Minimax + LLM，84% 胜率）、DeepSeek AI、Master AI、智能 AI 或随机 AI，支持太晶化、能力变化和中文本地化。
+**宝可梦控制台对战** 是一个 TypeScript/JavaScript 项目，在控制台中模拟第九代宝可梦对战。
+
+### 两种对战模式
+
+本项目支持两种对战架构：
+
+#### 1. 本地对战模式（推荐新手）
+- 直接在 Node.js 进程中运行，无需额外服务器
+- 支持 AI 对手：DeepSeek AI、Master AI、智能 AI、随机 AI
+- 简单易用，一条命令启动：`npm start`
+- **不支持 PokéChamp AI**（因为 PokéChamp 需要完整的 Battle 对象）
+
+#### 2. 服务器对战模式（PokéChamp AI 专用）
+- 通过本地 Pokemon Showdown 服务器进行对战
+- **仅支持 PokéChamp AI**（Minimax + LLM，84% 胜率）
+- 需要启动三个进程：服务器、Python AI 服务、玩家客户端
+- PokéChamp AI 可以使用完整的 `choose_move(battle)` 方法
 
 **关键点：**
 - 基于 Pokemon Showdown 模拟器
@@ -38,22 +59,41 @@ tests/                  # 测试文件
 
 ### 战斗系统 (`src/battle/`)
 
-战斗系统是核心游戏引擎，包含 4 个关键文件：
+战斗系统是核心游戏引擎，包含以下关键文件：
 
-1. **pve-battle.js** (342 行)
-   - 主入口和游戏编排器
+**对战入口文件（两种架构）：**
+
+#### 模式 1：本地对战入口
+
+1. **pve-battle.js** (342 行) - 本地对战模式主入口
+   - 直接在 Node.js 进程中运行
    - 处理 Pokemon Showdown 消息流
    - 管理玩家输入和队伍选择
    - 入口函数：`startPVEBattle()` 异步函数
    - 使用 readline 进行交互式 CLI 输入
+   - 支持 AI：DeepSeek AI、Master AI、智能 AI、随机 AI
+   - **不支持 PokéChamp AI**
 
-2. **message-handler.js** (537 行)
+#### 模式 2：服务器对战入口
+
+2. **pokechamp-local-battle.js** (新增) - 服务器对战模式客户端
+   - 通过 WebSocket 连接到本地 Pokemon Showdown 服务器
+   - 使用与 poke_env 相同的协议（`ws://localhost:8000/showdown/websocket`）
+   - 让 PokéChamp AI 可以使用完整的 `choose_move(battle)` 方法
+   - 实现真正的 Minimax + LLM 混合决策
+   - 入口函数：`startClient()`
+   - **仅支持与 PokéChamp AI 对战**
+   - 需要配合 `start-local-server.js` 和 `pokechamp-service.py` 使用
+
+**核心模块文件：**
+
+3. **message-handler.js** (537 行)
    - 解析 20+ 种 Pokemon Showdown 战斗消息类型
    - 根据战斗事件更新游戏状态（切换、招式、伤害、倒下、状态等）
    - `BattleMessageHandler` 类通过 `handle*` 方法处理各类消息
    - 将宝可梦名称和招式翻译为中文
 
-3. **battle-state.js** (412 行)
+4. **battle-state.js** (412 行)
    - 完整的游戏状态管理，包含多个类：
      - `BattleState`：主状态容器
      - `BattleField`：天气、地形、场地效果
@@ -61,7 +101,7 @@ tests/                  # 测试文件
      - `PokemonState`：单只宝可梦数据（HP、状态、能力变化、太晶化）
    - 管理能力变化、状态异常、队伍组成
 
-4. **ui-display.js** (377 行)
+5. **ui-display.js** (377 行)
    - 控制台渲染函数
    - 显示：队伍信息、可用选择、战斗状态、宝可梦数据
    - 函数：`displayChoices()`、`displaySwitchChoices()`、`displayTeamInfo()` 等
@@ -70,13 +110,12 @@ tests/                  # 测试文件
 
 **架构：** 抽象工厂模式，包含基类和具体实现
 
+#### 本地对战模式可用的 AI
+
+这些 AI 在 `pve-battle.js` 中可用，通过 `ai-player-factory.ts` 创建：
+
 - **ai-player.ts**：抽象 `AIPlayer` 类，继承 Pokemon Showdown 的 BattlePlayer
 - **ai-player-factory.ts**：根据类型创建 AI 实例的工厂
-- **ai-player/pokechamp-ai-player.ts**：PokéChamp AI，Minimax 树搜索 + LLM 混合决策（84% 胜率）
-  - 使用 Python 子进程运行 PokéChamp LLMPlayer
-  - 通过 JSON 进行进程间通信
-  - 需要 `OPENROUTER_API_KEY` 环境变量
-  - 支持多种免费和付费 LLM 模型（默认使用免费的 DeepSeek）
 - **ai-player/master-ai-player.ts**：高级智能 AI，使用更复杂的启发式算法
 - **ai-player/smart-ai-player.ts**：本地智能 AI，评估招式威力和属性克制
 - **ai-player/deepseek-ai-player.ts**：基于 LLM 的 AI，使用 DeepSeek API（有本地 AI 降级）
@@ -86,6 +125,24 @@ tests/                  # 测试文件
 - `start()`：异步初始化（连接战斗流）
 - `receiveRequest()`：处理 Pokemon Showdown 请求消息
 - `choosePokemon()` / `chooseMove()`：决策方法
+
+#### 服务器对战模式可用的 AI
+
+这些 AI 仅在服务器对战模式中可用：
+
+- **PokéChamp AI**（通过 `pokechamp-service.py` 和 `pokechamp-ai/` 库）
+  - Minimax 树搜索（K=2）+ LLM 混合决策
+  - 84% 胜率（ICML 2025）
+  - 使用 poke-env 连接到本地 Pokemon Showdown 服务器
+  - 需要 `OPENROUTER_API_KEY` 环境变量
+  - 支持多种免费和付费 LLM 模型（默认使用免费的 DeepSeek）
+  - **注意：** PokéChamp AI 需要完整的 Battle 对象，因此只能在服务器模式下使用
+
+**历史遗留：**
+- **ai-player/pokechamp-ai-player.ts**：旧版本的 PokéChamp AI 集成（已废弃）
+  - 尝试通过 Python 子进程运行 PokéChamp LLMPlayer
+  - 由于无法提供完整的 Battle 对象，无法使用真正的 `choose_move()` 方法
+  - 现已被服务器对战模式取代
 
 ### 支持模块 (`src/support/`)
 
@@ -102,10 +159,83 @@ npm run build:watch   # 开发模式下的监视编译
 ```
 
 ### 运行
+
+#### 模式 1：本地对战模式（推荐新手）
+
+**一条命令启动，支持多种 AI（不包括 PokéChamp）：**
+
 ```bash
-npm start             # 构建 + 运行 pve-battle.js（推荐）
+npm start             # 构建 + 运行，推荐
+# 或
 npm run battle        # 仅运行 pve-battle.js
-npm run simple        # 运行 simple-battle.js
+```
+
+**支持的 AI 对手：**
+- DeepSeek AI（需要 `DEEPSEEK_API_KEY`）
+- Master AI（高级启发式）
+- 智能 AI（基础启发式）
+- 随机 AI（用于测试）
+
+**优点：**
+- ✅ 简单易用，一条命令启动
+- ✅ 无需额外配置
+- ✅ 适合快速测试和开发
+
+**缺点：**
+- ❌ 不支持 PokéChamp AI
+
+#### 模式 2：服务器对战模式（PokéChamp AI 专用）
+
+**通过本地服务器与 PokéChamp AI 对战：**
+
+**方法 A：一键启动（推荐）⭐**
+
+```bash
+npm run pokechamp:all
+```
+
+自动启动脚本（`start-pokechamp-battle.js`）会依次启动所有必要的服务。
+
+**方法 B：手动启动（三个终端）**
+
+如果需要分别查看各个进程的日志：
+
+**终端 1 - 启动本地服务器：**
+```bash
+npm run server
+```
+服务器将在 `http://localhost:8000` 运行
+
+**终端 2 - 启动 PokéChamp Python 服务：**
+```bash
+cd pokechamp-ai
+python pokechamp-service.py
+```
+确保在 `.env` 文件中设置了 `OPENROUTER_API_KEY`
+
+**终端 3 - 启动玩家客户端：**
+```bash
+npm run pokechamp
+```
+
+**支持的 AI 对手：**
+- **仅 PokéChamp AI**（Minimax + LLM，84% 胜率）
+
+**优点：**
+- ✅ PokéChamp AI 使用完整的 `choose_move(battle)` 方法
+- ✅ 运行真正的 Minimax 树搜索（K=2）
+- ✅ 通过 LLM 进行状态评估
+- ✅ 达到 84% 的对战胜率
+- ✅ 支持一键启动！
+
+**缺点：**
+- ⚠️ 需要 Python 环境和额外依赖
+- ⚠️ 需要配置 `.env` 文件
+
+#### 其他命令
+
+```bash
+npm run simple        # 运行 simple-battle.js（简化版）
 npm test              # 运行 deepseek 测试
 ```
 
@@ -319,3 +449,23 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认�
 - `npm test` - 运行 `tests/test-deepseek.js` 进行 DeepSeek AI 测试
 - 使用随机 AI 或智能 AI 测试而无需 API 依赖
 - 使用 PokéChamp AI 测试需要在 `.env` 文件中配置 `OPENROUTER_API_KEY`
+
+### PokéChamp AI 测试步骤
+
+测试 PokéChamp AI 时，请按照以下**完整步骤**操作：
+
+```bash
+npm start
+```
+
+然后依次输入：
+1. 输入 `1` - 选择 PokéChamp AI 作为对手
+2. 按 `Enter` - 确认选择
+3. 输入 `1` - 选择第一个宝可梦作为首发
+4. 等待测试结果
+
+**⚠️ 重要提醒：**
+- 每次测试 PokéChamp AI 都必须完成**完整流程**（所有 4 个步骤）
+- 不要只运行 `npm start` 就停止
+- 必须等待 Python 服务启动并完成 AI 初始化
+- 如果看到 Python 导入错误或连接错误，这些通常是预期行为（我们不需要连接 Pokemon Showdown 服务器）
