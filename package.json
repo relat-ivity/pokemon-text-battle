@@ -7,7 +7,7 @@
     "pokemon-battle": "./index.js"
   },
   "scripts": {
-    "battle": "npm run build && node src/battle/pve-battle.js",
+    "battle": "npm run build && node src/battle_local/pve-battle.js",
     "serverbattle": "npm run build && node scripts/start-server-battle.js",
     "server": "node scripts/start-server.js",
     "build": "tsc",

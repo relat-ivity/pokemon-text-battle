@@ -206,7 +206,6 @@ npm run server
 
 **终端 2 - 启动 PokéChamp Python 服务：**
 ```bash
-cd pokechamp-ai
 python src/ai/ai-support/pokechamp-service.py
 ```
 确保在 `.env` 文件中设置了 `OPENROUTER_API_KEY`

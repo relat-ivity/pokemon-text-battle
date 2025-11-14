@@ -70,6 +70,14 @@ node src/battle_local/pve-battle.js
 npm run serverbattle
 ```
 
+如果启动失败，手动启动三个脚本：
+
+```bash
+npm run server
+python src/ai/ai-support/pokechamp-service.py
+node src/battle/pve-server-battle.js
+```
+
 ---
 
 ## 📖 使用说明

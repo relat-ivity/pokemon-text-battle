@@ -63,11 +63,13 @@ function startServer() {
         log(colors.cyan, '\n[1/3]', '正在启动 Pokemon Showdown 本地服务器...');
 
         serverProcess = spawn('node', ['scripts/start-server.js'], {
+            cwd: path.join(__dirname, '..'),
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: true
         });
 
         let serverReady = false;
+        let portInUse = false;
 
         serverProcess.stdout.on('data', (data) => {
             const output = data.toString();
@@ -84,22 +86,43 @@ function startServer() {
         });
 
         serverProcess.stderr.on('data', (data) => {
-            console.error(`${colors.red}[服务器错误]${colors.reset} ${data.toString().trim()}`);
+            const output = data.toString();
+
+            // 检查是否是端口占用错误
+            if (output.includes('EADDRINUSE') && output.includes('8000')) {
+                if (!portInUse) {
+                    portInUse = true;
+                    log(colors.yellow, '[服务器]', '⚠️  端口 8000 已被占用');
+                    log(colors.yellow, '[服务器]', '检测到服务器可能已经在运行，跳过启动步骤\n');
+                    // 停止当前进程
+                    if (serverProcess && !serverProcess.killed) {
+                        serverProcess.kill();
+                    }
+                    serverProcess = null;
+                    resolve(); // 继续执行后续步骤
+                }
+            } else if (!output.includes('SUBCRASH') && !output.includes('ENOENT')) {
+                // 只显示重要的错误，忽略次要的子错误
+                console.error(`${colors.red}[服务器]${colors.reset} ${output.trim()}`);
+            }
         });
 
         serverProcess.on('error', (error) => {
-            reject(new Error(`服务器启动失败: ${error.message}`));
+            if (!portInUse) {
+                reject(new Error(`服务器启动失败: ${error.message}`));
+            }
         });
 
         serverProcess.on('exit', (code) => {
-            if (code !== 0 && code !== null) {
+            if (code !== 0 && code !== null && !serverReady && !portInUse) {
                 log(colors.red, '[服务器]', `服务器异常退出，代码: ${code}`);
             }
         });
 
         // 超时检查
         setTimeout(() => {
-            if (!serverReady) {
+            if (!serverReady && !portInUse) {
+                log(colors.yellow, '[服务器]', '⚠️  未检测到服务器启动消息，但继续执行\n');
                 resolve(); // 即使没有看到成功消息，也继续（服务器可能已经在运行）
             }
         }, 3000);
@@ -127,6 +150,7 @@ function startPythonService() {
             log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
 
             pythonProcess = spawn(pythonCmd, ['src/ai/ai-support/pokechamp-service.py'], {
+                cwd: path.join(__dirname, '..'),
                 stdio: ['ignore', 'pipe', 'pipe'],
                 shell: true
             });
@@ -200,6 +224,7 @@ function startClient() {
         log(colors.bright, '', '='.repeat(60) + '\n');
 
         clientProcess = spawn('node', ['src/battle/pve-server-battle.js'], {
+            cwd: path.join(__dirname, '..'),
             stdio: 'inherit',
             shell: true
         });

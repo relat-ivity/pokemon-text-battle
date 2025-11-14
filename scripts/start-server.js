@@ -8,7 +8,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 // Pokemon Showdown 服务器路径
-const showdownPath = path.join(__dirname, 'node_modules', 'pokemon-showdown');
+const showdownPath = path.join(__dirname, '..', 'node_modules', 'pokemon-showdown');
 
 console.log('🚀 启动 Pokemon Showdown 本地服务器...');
 console.log(`📁 服务器路径: ${showdownPath}`);
