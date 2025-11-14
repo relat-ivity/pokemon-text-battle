@@ -20,7 +20,7 @@ Pokemon Showdown 本地服务器 (localhost:8000)
     │   - 处理玩家输入
     │   - 显示对战状态
     │
-    └── PokéChamp AI (pokechamp-service.py)
+    └── PokéChamp AI (src/ai/ai-support/pokechamp-service.py)
         ├── poke-env 库
         │   - 连接到本地服务器
         │   - 维护完整的 Battle 对象
@@ -42,16 +42,16 @@ Pokemon Showdown 本地服务器 (localhost:8000)
 
 **服务器对战模式：**
 
-1. **start-local-server.js** - 本地服务器启动脚本
+1. **scripts/start-server.js** - 本地服务器启动脚本
    - 启动 Pokemon Showdown 服务器
    - 监听 localhost:8000
 
-2. **pokechamp-local-battle.js** - 玩家客户端
+2. **pve-server-battle.js** - 玩家客户端
    - WebSocket 连接到本地服务器
    - 处理玩家输入和显示
    - 实现 Pokemon Showdown 协议
 
-3. **pokechamp-service.py** - PokéChamp AI 服务
+3. **src/ai/ai-support/pokechamp-service.py** - PokéChamp AI 服务
    - 初始化 LLMPlayer
    - 连接到本地服务器
    - 使用完整的 Minimax + LLM 决策
@@ -60,13 +60,6 @@ Pokemon Showdown 本地服务器 (localhost:8000)
    - 自动启动所有三个进程
    - 管理进程生命周期
    - 提供彩色日志输出
-
-**旧版架构（已废弃）：**
-
-- **pokechamp-ai-player.ts** - 旧版 TypeScript 包装器
-  - 尝试通过 JSON 通信调用 Python
-  - 无法提供完整的 Battle 对象
-  - 无法使用真正的 choose_move() 方法
 
 ## 使用方法
 
@@ -143,7 +136,7 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 默认，免费
 使用自动启动脚本，一条命令启动所有服务：
 
 ```bash
-npm run pokechamp:all
+npm run serverbattle
 ```
 
 脚本会自动依次启动：
@@ -161,13 +154,13 @@ npm run server
 
 # 终端 2 - 启动 PokéChamp Python 服务
 cd pokechamp-ai
-python pokechamp-service.py
+python src/ai/ai-support/pokechamp-service.py
 
 # 终端 3 - 启动玩家客户端
-npm run pokechamp
+node src/battle/pve-server-battle.js
 ```
 
-**注意：** 旧版本通过 `npm start` 选择 PokéChamp AI 的方式已废弃。新版本使用服务器对战模式，让 PokéChamp AI 能够使用完整的 `choose_move(battle)` 方法和 Minimax 树搜索。
+**注意：** 旧版本通过 `npm run battle` 选择 PokéChamp AI 的方式已废弃。新版本使用服务器对战模式，让 PokéChamp AI 能够使用完整的 `choose_move(battle)` 方法和 Minimax 树搜索。
 
 ## 支持的 LLM 后端
 
@@ -335,7 +328,7 @@ cd ..
 
 ### 调整 LLM 参数
 
-编辑 `pokechamp-service.py`:
+编辑 `src/ai/ai-support/pokechamp-service.py`:
 
 ```python
 # 温度参数（0.0-1.0）
@@ -388,7 +381,7 @@ OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
 POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认值
 
 # 2. 运行对战（一键启动）
-npm run pokechamp:all
+npm run serverbattle
 ```
 
 **优势**：
@@ -449,7 +442,7 @@ POKECHAMP_LLM_BACKEND=openai/gpt-4o-mini
 4. 复制 key 到 `.env` 文件的 `OPENROUTER_API_KEY` 变量
 
 ### Q: 对战中可以切换 LLM 模型吗？
-**A**: 不可以。需要重新启动程序。修改 `.env` 文件中的 `POKECHAMP_LLM_BACKEND` 变量后，重新运行 `npm start` 即可。
+**A**: 不可以。需要重新启动程序。修改 `.env` 文件中的 `POKECHAMP_LLM_BACKEND` 变量后，重新运行 `npm run battle` 即可。
 
 ### Q: PokéChamp 支持哪些宝可梦世代？
 **A**: 当前配置支持 Gen 9 随机对战（`gen9randombattle`）。原始 PokéChamp 项目还支持 Gen 1-4 和 Gen 9 OU 格式。

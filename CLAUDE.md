@@ -18,7 +18,7 @@
 #### 1. 本地对战模式（推荐新手）
 - 直接在 Node.js 进程中运行，无需额外服务器
 - 支持 AI 对手：DeepSeek AI、Master AI、智能 AI、随机 AI
-- 简单易用，一条命令启动：`npm start`
+- 简单易用，一条命令启动：`npm run battle`
 - **不支持 PokéChamp AI**（因为 PokéChamp 需要完整的 Battle 对象）
 
 #### 2. 服务器对战模式（PokéChamp AI 专用）
@@ -47,7 +47,7 @@ src/
 
 pokechamp-ai/
 ├── pokechamp/          # PokéChamp AI 核心库
-├── pokechamp-service.py # PokéChamp AI 服务（Python 子进程）
+├── src/ai/ai-support/pokechamp-service.py # PokéChamp AI 服务（Python 子进程）
 └── ...                 # 其他 Python 依赖
 
 dist/                   # 编译后的 JavaScript 输出（自动生成）
@@ -83,7 +83,7 @@ tests/                  # 测试文件
    - 实现真正的 Minimax + LLM 混合决策
    - 入口函数：`startClient()`
    - **仅支持与 PokéChamp AI 对战**
-   - 需要配合 `start-local-server.js` 和 `pokechamp-service.py` 使用
+   - 需要配合 `scripts/start-server.js` 和 `src/ai/ai-support/pokechamp-service.py` 使用
 
 **核心模块文件：**
 
@@ -130,7 +130,7 @@ tests/                  # 测试文件
 
 这些 AI 仅在服务器对战模式中可用：
 
-- **PokéChamp AI**（通过 `pokechamp-service.py` 和 `pokechamp-ai/` 库）
+- **PokéChamp AI**（通过 `src/ai/ai-support/pokechamp-service.py` 和 `pokechamp-ai/` 库）
   - Minimax 树搜索（K=2）+ LLM 混合决策
   - 84% 胜率（ICML 2025）
   - 使用 poke-env 连接到本地 Pokemon Showdown 服务器
@@ -165,9 +165,7 @@ npm run build:watch   # 开发模式下的监视编译
 **一条命令启动，支持多种 AI（不包括 PokéChamp）：**
 
 ```bash
-npm start             # 构建 + 运行，推荐
-# 或
-npm run battle        # 仅运行 pve-battle.js
+npm run battle
 ```
 
 **支持的 AI 对手：**
@@ -191,7 +189,7 @@ npm run battle        # 仅运行 pve-battle.js
 **方法 A：一键启动（推荐）⭐**
 
 ```bash
-npm run pokechamp:all
+npm run serverbattle
 ```
 
 自动启动脚本（`start-pokechamp-battle.js`）会依次启动所有必要的服务。
@@ -209,13 +207,13 @@ npm run server
 **终端 2 - 启动 PokéChamp Python 服务：**
 ```bash
 cd pokechamp-ai
-python pokechamp-service.py
+python src/ai/ai-support/pokechamp-service.py
 ```
 确保在 `.env` 文件中设置了 `OPENROUTER_API_KEY`
 
 **终端 3 - 启动玩家客户端：**
 ```bash
-npm run pokechamp
+node src/battle/pve-server-battle.js
 ```
 
 **支持的 AI 对手：**
@@ -427,7 +425,7 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认�
 - **新增 PokéChamp AI**：集成了 ICML 2025 获奖的高级对战 AI
 - **环境变量配置**：改用 `.env` 文件配置（`OPENROUTER_API_KEY`、`POKECHAMP_LLM_BACKEND`）
 - **免费 LLM 支持**：默认使用免费的 `deepseek/deepseek-chat-v3.1:free` 模型
-- **Python 子进程**：通过 `pokechamp-service.py` 运行 PokéChamp LLMPlayer
+- **Python 子进程**：通过 `src/ai/ai-support/pokechamp-service.py` 运行 PokéChamp LLMPlayer
 - **进程间通信**：使用 JSON 格式在 Node.js 和 Python 之间通信
 - 详见 `docs/POKECHAMP_AI_GUIDE.md` 了解完整文档
 
@@ -444,7 +442,7 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认�
 
 ## 测试入口
 
-- `npm start` - 启动完整对战（推荐），可选择任何 AI 对手
+- `npm run battle` - 启动完整对战（推荐），可选择任何 AI 对手
 - `npm run battle` - 直接运行对战
 - `npm test` - 运行 `tests/test-deepseek.js` 进行 DeepSeek AI 测试
 - 使用随机 AI 或智能 AI 测试而无需 API 依赖
@@ -455,7 +453,7 @@ POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free  # 可选，这是默认�
 测试 PokéChamp AI 时，请按照以下**完整步骤**操作：
 
 ```bash
-npm start
+npm run battle
 ```
 
 然后依次输入：
@@ -466,6 +464,6 @@ npm start
 
 **⚠️ 重要提醒：**
 - 每次测试 PokéChamp AI 都必须完成**完整流程**（所有 4 个步骤）
-- 不要只运行 `npm start` 就停止
+- 不要只运行 `npm run battle` 就停止
 - 必须等待 Python 服务启动并完成 AI 初始化
 - 如果看到 Python 导入错误或连接错误，这些通常是预期行为（我们不需要连接 Pokemon Showdown 服务器）

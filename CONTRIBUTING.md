@@ -71,7 +71,7 @@ npm install
 npm test
 
 # 启动开发
-npm start
+npm run battle
 ```
 
 ## 需要帮助？

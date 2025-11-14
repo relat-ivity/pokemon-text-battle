@@ -8,10 +8,13 @@
 
 const WebSocket = require('ws');
 const readline = require('readline');
-const BattleState = require('../battle_common/battle-state.js');
-const BattleMessageHandler = require('../battle_common/message-handler.js');
-const { displayChoices, displaySwitchChoices, displayTeamInfo } = require('../battle_common/ui-display.js');
-const translator = require('../../dist/support/translator.js');
+const { BattleState } = require('../battle_common/battle-state');
+const { BattleMessageHandler } = require('../battle_common/message-handler');
+const { displayChoices, displaySwitchChoices, displayBattleTeamStatus } = require('../battle_common/ui-display');
+const { Translator } = require('../../dist/support/translator');
+
+// 初始化翻译器
+const translator = Translator.getInstance('cn');
 
 // 配置
 const SERVER_URL = 'ws://localhost:8000/showdown/websocket';

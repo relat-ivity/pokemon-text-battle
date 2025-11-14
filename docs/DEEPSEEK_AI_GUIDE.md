@@ -37,7 +37,7 @@ npm install
 
 3. 保存文件，直接运行即可：
    ```bash
-   npm start
+   npm run battle
    ```
 
 #### 方法二：临时设置环境变量（当前会话有效）
@@ -45,19 +45,19 @@ npm install
 **Windows (PowerShell):**
 ```powershell
 $env:DEEPSEEK_API_KEY="你的API密钥"
-npm start
+npm run battle
 ```
 
 **Windows (CMD):**
 ```cmd
 set DEEPSEEK_API_KEY=你的API密钥
-npm start
+npm run battle
 ```
 
 **Linux / macOS:**
 ```bash
 export DEEPSEEK_API_KEY="你的API密钥"
-npm start
+npm run battle
 ```
 
 #### 方法三：永久设置系统环境变量
@@ -177,8 +177,8 @@ node pve-battle.js
    - 注意：等号两边不要有空格，密钥不需要引号
 
 2. **临时设置环境变量**
-   - PowerShell: `$env:DEEPSEEK_API_KEY="你的密钥"; npm start`
-   - CMD: `set DEEPSEEK_API_KEY=你的密钥 && npm start`
+   - PowerShell: `$env:DEEPSEEK_API_KEY="你的密钥"; npm run battle`
+   - CMD: `set DEEPSEEK_API_KEY=你的密钥 && npm run battle`
 
 3. **系统环境变量未生效**
    - Windows：设置系统环境变量后，必须**完全关闭并重新打开**所有终端和 IDE（如 VS Code、WebStorm）

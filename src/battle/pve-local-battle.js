@@ -2,7 +2,7 @@
  * PVE 对战脚本 - 玩家 vs AI
  * 使用 Pokemon Showdown 模拟器
  * 
- * 运行方式：npm start 或 node src/battle/pve-battle.js
+ * 运行方式：npm run battle 或 node src/battle/pve-battle.js
  */
 
 const Sim = require('pokemon-showdown');

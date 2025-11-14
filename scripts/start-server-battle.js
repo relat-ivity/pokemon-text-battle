@@ -62,7 +62,7 @@ function startServer() {
     return new Promise((resolve, reject) => {
         log(colors.cyan, '\n[1/3]', '正在启动 Pokemon Showdown 本地服务器...');
 
-        serverProcess = spawn('node', ['start-local-server.js'], {
+        serverProcess = spawn('node', ['scripts/start-server.js'], {
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: true
         });
@@ -126,7 +126,7 @@ function startPythonService() {
             const pythonCmd = pythonCommands[commandIndex];
             log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
 
-            pythonProcess = spawn(pythonCmd, ['pokechamp-service.py'], {
+            pythonProcess = spawn(pythonCmd, ['src/ai/ai-support/pokechamp-service.py'], {
                 stdio: ['ignore', 'pipe', 'pipe'],
                 shell: true
             });
@@ -199,7 +199,7 @@ function startClient() {
         log(colors.bright, '', '玩家客户端已启动，请开始游戏！');
         log(colors.bright, '', '='.repeat(60) + '\n');
 
-        clientProcess = spawn('node', ['src/battle_on_server/pve-server-battle.js'], {
+        clientProcess = spawn('node', ['src/battle/pve-server-battle.js'], {
             stdio: 'inherit',
             shell: true
         });
