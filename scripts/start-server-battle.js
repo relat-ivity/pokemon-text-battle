@@ -29,6 +29,9 @@ let serverProcess = null;
 let pythonProcess = null;
 let clientProcess = null;
 
+// 生成唯一ID用于 PokéChamp AI 的用户名
+const POKECHAMP_ID = String(Date.now() % 10000);
+
 /**
  * 打印带颜色的日志
  */
@@ -149,7 +152,7 @@ function startPythonService() {
             const pythonCmd = pythonCommands[commandIndex];
             log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
 
-            pythonProcess = spawn(pythonCmd, ['src/ai/ai-support/pokechamp-service.py'], {
+            pythonProcess = spawn(pythonCmd, ['pokechamp-ai-player.py', POKECHAMP_ID], {
                 cwd: path.join(__dirname, '..'),
                 stdio: ['ignore', 'pipe', 'pipe'],
                 shell: true
@@ -167,7 +170,7 @@ function startPythonService() {
                 console.error(`${colors.magenta}[Python]${colors.reset} ${output.trim()}`);
 
                 // 检查服务是否已经启动
-                if (output.includes('[IMPORT]') || output.includes('[INIT]')) {
+                if (output.includes('[DEBUG]') || output.includes('成功导入') || output.includes('正在初始化')) {
                     if (!pythonReady) {
                         pythonReady = true;
                         log(colors.green, '[Python]', '✓ Python 服务启动成功\n');
@@ -226,7 +229,8 @@ function startClient() {
         clientProcess = spawn('node', ['src/battle/pve-server-battle.js'], {
             cwd: path.join(__dirname, '..'),
             stdio: 'inherit',
-            shell: true
+            shell: true,
+            env: { ...process.env, POKECHAMP_ID: POKECHAMP_ID }
         });
 
         clientProcess.on('error', (error) => {

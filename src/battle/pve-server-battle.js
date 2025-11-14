@@ -57,24 +57,31 @@ function sendMessage(message, room = '') {
  * 处理 challstr 消息并登录
  */
 function handleChallstr(parts) {
-    console.log('\n🔐 收到认证挑战，正在登录...');
-    // 本地服务器无需密码，直接发送 /trn 命令
-    sendMessage(`/trn ${PLAYER_USERNAME},0,`);
+    console.log('\n🔐 收到认证挑战，等待PokeChamp启动...');
+    // 本地服务器不需要登录，直接使用 Guest 账号
+    // 什么都不做，等待 updateuser 消息
 }
 
 /**
  * 处理 updateuser 消息（确认登录）
  */
 function handleUpdateUser(parts) {
-    const username = parts[2];
-    if (username === ` ${PLAYER_USERNAME}` || username === ` ${PLAYER_USERNAME}@!`) {
-        console.log(`\n✅ 登录成功: ${PLAYER_USERNAME}`);
+    const username = parts[2].trim(); // 去掉前后空格
+    const loggedIn = parts[3] === '1'; // 检查是否已登录（1表示已登录）
+
+    console.log(`\n✅ 已连接: ${username}`);
+
+    // 设置队伍为 null（随机队伍）
+    sendMessage('/utm null');
+
+    // 如果有 POKECHAMP_ID 环境变量，发送挑战；否则搜索对战
+    const pokechampId = process.env.POKECHAMP_ID;
+    if (pokechampId) {
+        const opponentName = `pokechamp${pokechampId}`;
+        console.log(`🎯 正在挑战 ${opponentName}...\n`);
+        sendMessage(`/challenge ${opponentName}, ${BATTLE_FORMAT}`);
+    } else {
         console.log('🔍 正在搜索 gen9randombattle 对战...\n');
-
-        // 设置队伍为 null（随机队伍）
-        sendMessage('/utm null');
-
-        // 搜索对战
         sendMessage(`/search ${BATTLE_FORMAT}`);
     }
 }

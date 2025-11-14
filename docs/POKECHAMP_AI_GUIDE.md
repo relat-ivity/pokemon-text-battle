@@ -85,7 +85,9 @@ cd ..
 
 **注意**：如果使用 `uv sync` 后出现 "No module named 'numpy'" 错误，请使用 pip 方法重新安装。
 
-### 2. 配置环境变量
+### 2. OpenRouter API Key 配置
+
+PokéChamp AI 需要 `OPENROUTER_API_KEY` 环境变量：
 
 **推荐方式：使用 .env 文件**
 
@@ -96,17 +98,14 @@ cp .env.example .env
 # 2. 编辑 .env 文件，填写你的 API key
 # OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
 # POKECHAMP_LLM_BACKEND=deepseek/deepseek-chat-v3.1:free
+
+# 3. 安装python-dotenv
+python -m pip install python-dotenv
 ```
 
-**OpenRouter API Key 配置（必需）**
-
-PokéChamp AI 需要 `OPENROUTER_API_KEY` 环境变量：
+方式 2：直接导出环境变量
 
 ```bash
-# 方式 1：在 .env 文件中配置（推荐）
-OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
-
-# 方式 2：直接导出环境变量
 export OPENROUTER_API_KEY='sk-or-v1-your-api-key-here'
 ```
 
@@ -116,7 +115,7 @@ export OPENROUTER_API_KEY='sk-or-v1-your-api-key-here'
 3. 创建 API key
 4. 复制 key 到 .env 文件
 
-**选择 LLM 模型（可选）**
+### 3. 选择 LLM 模型
 
 通过 `POKECHAMP_LLM_BACKEND` 环境变量选择模型：
 
