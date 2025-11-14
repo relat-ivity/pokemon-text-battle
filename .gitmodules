@@ -1,4 +1,0 @@
-[submodule "pokechamp-ai"]
-	path = pokechamp-ai
-	url = https://github.com/relat-ivity/pokechamp.git
-	branch = v1.2.0
