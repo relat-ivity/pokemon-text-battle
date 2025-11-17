@@ -121,6 +121,35 @@ async function selectLeadPokemon(team) {
 }
 
 /**
+ * 转换简化指令为完整格式
+ * @param {string} input - 用户输入
+ * @returns {string} - 转换后的指令，如果是无效输入则返回原输入
+ */
+function normalizeChoice(input) {
+	// 特殊命令直接返回
+	if (input.toLowerCase() === 'team') {
+		return 'team';
+	}
+
+	// 匹配简写格式（m1, m1 t, m1 tera）
+	const shortMatch = input.match(/^([ms])(\d+)(?:\s+(t|tera|terastallize))?$/i);
+	if (shortMatch) {
+		const action = shortMatch[1].toLowerCase();
+		const index = shortMatch[2];
+		const terastallize = shortMatch[3];
+
+		if (action === 'm') {
+			return terastallize ? `move ${index} terastallize` : `move ${index}`;
+		} else if (action === 's') {
+			return `switch ${index}`;
+		}
+	}
+
+	// 已经是完整格式或其他格式，直接返回
+	return input;
+}
+
+/**
  * 获取玩家选择
  */
 async function getPlayerChoice() {
@@ -129,7 +158,8 @@ async function getPlayerChoice() {
 		console.log('❌ 输入不能为空');
 		choice = await prompt('你的选择: ');
 	}
-	return choice;
+	// 转换简化指令
+	return normalizeChoice(choice);
 }
 
 /**

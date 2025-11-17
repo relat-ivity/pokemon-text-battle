@@ -212,8 +212,21 @@ class PlayerState {
 	/**
 	 * 切换宝可梦（重置能力变化和状态）
 	 */
-	switchPokemon(species, name, hp) {
+	switchPokemon(species, name, hp, details = null) {
+		this.species = species;
+		this.name = name;
+		this.condition = hp;
 		this.boosts = {};
+
+		// 从 details 中提取等级信息
+		this.level = null;
+		if (details) {
+			const levelMatch = details.match(/L(\d+)/);
+			if (levelMatch) {
+				this.level = parseInt(levelMatch[1]);
+			}
+		}
+
 		// 从HP字符串中提取状态
 		if (hp && hp.includes(' ')) {
 			const hpParts = hp.split(' ');
@@ -302,17 +315,49 @@ class OpponentState extends PokemonState {
 		this.faintedPokemon = new Set(); // 已昏厥的宝可梦
 		this.terastallizedPokemon = null; // 太晶化的宝可梦species
 		this.teraType = null; // 太晶化的属性
+		this.seenPokemon = new Map(); // 见过的宝可梦 Map<species, {species, hp, maxhp, condition, active, fainted}>
+		this.totalPokemonCount = 6; // 对手队伍总数（gen9randombattle 默认 6）
 	}
 
 	/**
 	 * 切换宝可梦
 	 */
-	switchPokemon(species, name, hp) {
+	switchPokemon(species, name, hp, details = null) {
 		this.species = species;
 		this.name = name;
 		this.condition = hp;
 		this.status = null;
 		this.boosts = {};
+
+		// 从 details 中提取等级信息
+		this.level = null;
+		if (details) {
+			const levelMatch = details.match(/L(\d+)/);
+			if (levelMatch) {
+				this.level = parseInt(levelMatch[1]);
+			}
+		}
+
+		// 记录见过的宝可梦
+		const normalizedSpecies = normalizeSpeciesName(species);
+		if (!this.seenPokemon.has(normalizedSpecies)) {
+			this.seenPokemon.set(normalizedSpecies, {
+				species: species,
+				level: this.level,
+				hp: 100, // 默认满血
+				maxhp: 100,
+				condition: hp || '100/100',
+				active: true,
+				fainted: false
+			});
+		} else {
+			// 更新已知宝可梦的状态
+			const pokemon = this.seenPokemon.get(normalizedSpecies);
+			pokemon.condition = hp || pokemon.condition;
+			pokemon.active = true;
+			pokemon.fainted = false;
+			if (this.level) pokemon.level = this.level;
+		}
 	}
 
 	/**
@@ -322,6 +367,13 @@ class OpponentState extends PokemonState {
 		// 规范化名称后再存储
 		const normalizedSpecies = normalizeSpeciesName(species);
 		this.faintedPokemon.add(normalizedSpecies);
+
+		// 更新见过的宝可梦状态
+		if (this.seenPokemon.has(normalizedSpecies)) {
+			const pokemon = this.seenPokemon.get(normalizedSpecies);
+			pokemon.fainted = true;
+			pokemon.active = false;
+		}
 	}
 
 	/**
@@ -337,6 +389,20 @@ class OpponentState extends PokemonState {
 	 */
 	isTerastallized(species) {
 		return this.terastallizedPokemon === species;
+	}
+
+	/**
+	 * 获取见过的宝可梦列表
+	 */
+	getSeenPokemon() {
+		return Array.from(this.seenPokemon.values());
+	}
+
+	/**
+	 * 获取剩余存活的宝可梦数量
+	 */
+	getRemainingCount() {
+		return this.totalPokemonCount - this.faintedPokemon.size;
 	}
 }
 

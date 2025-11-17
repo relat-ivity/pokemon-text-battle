@@ -24,6 +24,9 @@ const colors = {
     cyan: '\x1b[36m',
 };
 
+// 调试模式开关
+const DEBUG_MODE = false; // 设置为 true 以显示详细进程日志
+
 // 进程管理
 let serverProcess = null;
 let pythonProcess = null;
@@ -76,7 +79,11 @@ function startServer() {
 
         serverProcess.stdout.on('data', (data) => {
             const output = data.toString();
-            console.log(`${colors.blue}[服务器]${colors.reset} ${output.trim()}`);
+
+            // 只在调试模式下显示详细输出
+            if (DEBUG_MODE) {
+                console.log(`${colors.blue}[服务器]${colors.reset} ${output.trim()}`);
+            }
 
             // 检查服务器是否启动成功
             if (output.includes('listening on') || output.includes('Test your server')) {
@@ -95,8 +102,7 @@ function startServer() {
             if (output.includes('EADDRINUSE') && output.includes('8000')) {
                 if (!portInUse) {
                     portInUse = true;
-                    log(colors.yellow, '[服务器]', '⚠️  端口 8000 已被占用');
-                    log(colors.yellow, '[服务器]', '检测到服务器可能已经在运行，跳过启动步骤\n');
+                    log(colors.yellow, '[服务器]', '⚠️  端口 8000 已被占用，服务器可能已在运行\n');
                     // 停止当前进程
                     if (serverProcess && !serverProcess.killed) {
                         serverProcess.kill();
@@ -104,8 +110,8 @@ function startServer() {
                     serverProcess = null;
                     resolve(); // 继续执行后续步骤
                 }
-            } else if (!output.includes('SUBCRASH') && !output.includes('ENOENT')) {
-                // 只显示重要的错误，忽略次要的子错误
+            } else if (DEBUG_MODE && !output.includes('SUBCRASH') && !output.includes('ENOENT')) {
+                // 只在调试模式下显示错误详情
                 console.error(`${colors.red}[服务器]${colors.reset} ${output.trim()}`);
             }
         });
@@ -137,7 +143,7 @@ function startServer() {
  */
 function startPythonService() {
     return new Promise((resolve, reject) => {
-        log(colors.magenta, '[2/3]', '正在启动 PokéChamp Python 服务...');
+        log(colors.magenta, '[2/3]', '正在启动 PokéChamp Python 服务，请稍等...');
 
         // 尝试不同的 Python 命令
         const pythonCommands = ['python', 'python3', 'py'];
@@ -150,7 +156,9 @@ function startPythonService() {
             }
 
             const pythonCmd = pythonCommands[commandIndex];
-            log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
+            if (DEBUG_MODE) {
+                log(colors.magenta, '[Python]', `尝试使用命令: ${pythonCmd}`);
+            }
 
             pythonProcess = spawn(pythonCmd, ['src/ai/ai-player/pokechamp-ai-player.py', POKECHAMP_ID], {
                 cwd: path.join(__dirname, '..'),
@@ -162,18 +170,24 @@ function startPythonService() {
 
             pythonProcess.stdout.on('data', (data) => {
                 const output = data.toString();
-                console.log(`${colors.magenta}[Python]${colors.reset} ${output.trim()}`);
+                if (DEBUG_MODE) {
+                    console.log(`${colors.magenta}[Python]${colors.reset} ${output.trim()}`);
+                }
             });
 
             pythonProcess.stderr.on('data', (data) => {
                 const output = data.toString();
-                console.error(`${colors.magenta}[Python]${colors.reset} ${output.trim()}`);
+
+                // 只在调试模式下显示详细输出
+                if (DEBUG_MODE) {
+                    console.error(`${colors.magenta}[Python]${colors.reset} ${output.trim()}`);
+                }
 
                 // 检查服务是否已经启动
-                if (output.includes('[DEBUG]') || output.includes('成功导入') || output.includes('正在初始化')) {
+                if (output.includes('成功导入') || output.includes('正在初始化') || output.includes('PokéChamp AI 初始化成功')) {
                     if (!pythonReady) {
                         pythonReady = true;
-                        log(colors.green, '[Python]', '✓ Python 服务启动成功\n');
+                        log(colors.green, '[Python]', '✓ PokéChamp AI 启动成功\n');
                         resolve();
                     }
                 }
@@ -199,20 +213,20 @@ function startPythonService() {
 
             // 超时检查（Python 服务启动较慢）
             setTimeout(() => {
-                if (!pythonReady) {
+                if (!pythonReady && DEBUG_MODE) {
                     log(colors.yellow, '[Python]', '等待 Python 服务初始化中...');
                 }
             }, 3000);
 
             setTimeout(() => {
-                if (!pythonReady) {
+                if (!pythonReady && DEBUG_MODE) {
                     log(colors.yellow, '[Python]', '继续等待 Python 服务初始化...');
                 }
             }, 6000);
 
             setTimeout(() => {
                 if (!pythonReady) {
-                    log(colors.green, '[Python]', '✓ 继续启动客户端（Python 服务将在后台继续初始化）\n');
+                    log(colors.green, '[Python]', '✓ 继续启动（AI 将在后台完成初始化）\n');
                     resolve();
                 }
             }, 8000);
@@ -227,10 +241,8 @@ function startPythonService() {
  */
 function startClient() {
     return new Promise((resolve, reject) => {
-        log(colors.green, '[3/3]', '正在启动玩家客户端...\n');
-        log(colors.bright, '', '='.repeat(60));
-        log(colors.bright, '', '玩家客户端已启动，请开始游戏！');
-        log(colors.bright, '', '='.repeat(60) + '\n');
+        log(colors.green, '[3/3]', '正在启动玩家客户端...');
+        log(colors.green, '[Client]', '✓ 玩家客户端已启动，请开始游戏！');
 
         clientProcess = spawn('node', ['src/battle/pve-server-battle.js'], {
             cwd: path.join(__dirname, '..'),

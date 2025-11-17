@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * PokéChamp 本地对战客户端
  *
@@ -8,10 +9,21 @@
 
 const WebSocket = require('ws');
 const readline = require('readline');
-const { BattleState } = require('../battle_common/battle-state');
-const { BattleMessageHandler } = require('../battle_common/message-handler');
-const { displayChoices, displaySwitchChoices, displayBattleTeamStatus, displayTeamInfo } = require('../battle_common/ui-display');
-const { Translator } = require('../../dist/support/translator');
+const {
+    BattleState
+} = require('../battle_common/battle-state');
+const {
+    BattleMessageHandler
+} = require('../battle_common/message-handler');
+const {
+    displayChoices,
+    displaySwitchChoices,
+    displayBattleTeamStatus,
+    displayTeamFromRequest
+} = require('../battle_common/ui-display');
+const {
+    Translator
+} = require('../../dist/support/translator');
 
 // 初始化翻译器
 const translator = Translator.getInstance('cn');
@@ -20,6 +32,7 @@ const translator = Translator.getInstance('cn');
 const SERVER_URL = 'ws://localhost:8000/showdown/websocket';
 const PLAYER_USERNAME = 'Player';
 const BATTLE_FORMAT = 'gen9randombattle';
+const DEBUG_MODE = false; // 设置为 true 以显示详细调试信息
 
 // 全局状态
 let ws = null;
@@ -28,6 +41,8 @@ let messageHandler = null;
 let currentBattleRoom = null;
 let rl = null;
 let waitingForInput = false;
+let challengeSent = false; // 标志：是否已发送挑战
+let teamDisplayed = false; // 标志：是否已展示队伍信息
 
 /**
  * 创建 readline 接口
@@ -52,7 +67,9 @@ function sendMessage(message, room = '') {
 
     // Pokemon Showdown 协议：始终使用 "|" 分隔符
     const toSend = `${room}|${message}`;
-    console.log(`\x1b[94m\x1b[1m>>>\x1b[0m ${toSend}`);
+    if (DEBUG_MODE) {
+        console.log(`\x1b[94m\x1b[1m>>>\x1b[0m ${toSend}`);
+    }
     ws.send(toSend);
 }
 
@@ -60,7 +77,7 @@ function sendMessage(message, room = '') {
  * 处理 challstr 消息并登录
  */
 function handleChallstr(parts) {
-    console.log('\n🔐 收到认证挑战，正在登录...');
+    console.log('🔐 收到认证挑战，正在登录...');
     // 对于本地服务器（noguestsecurity=true），需要手动发送 /trn 命令登录
     sendMessage(`/trn ${PLAYER_USERNAME}`);
 }
@@ -72,7 +89,12 @@ function handleUpdateUser(parts) {
     const username = parts[2].trim(); // 去掉前后空格
     const loggedIn = parts[3] === '1'; // 检查是否已登录（1表示已登录）
 
-    console.log(`\n✅ 已连接: ${username}`);
+    console.log(`✅ 已连接: ${username}`);
+
+    // 如果已经发送过挑战，直接返回（避免重复）
+    if (challengeSent) {
+        return;
+    }
 
     // 设置队伍为 null（随机队伍）
     sendMessage('/utm null');
@@ -84,6 +106,9 @@ function handleUpdateUser(parts) {
         console.log(`🎯 目标对手: ${opponentName}`);
         console.log(`⏳ 等待 5 秒让 PokéChamp AI 完全启动并准备接受挑战...\n`);
 
+        // 标记已发送挑战（在定时器之前设置，防止多次触发）
+        challengeSent = true;
+
         // 延迟发送挑战，确保 PokéChamp AI 已经完全启动并准备接受挑战
         setTimeout(() => {
             console.log(`📤 发送挑战给 ${opponentName}...\n`);
@@ -92,6 +117,7 @@ function handleUpdateUser(parts) {
     } else {
         console.log('🔍 正在搜索 gen9randombattle 对战...\n');
         sendMessage(`/search ${BATTLE_FORMAT}`);
+        challengeSent = true;
     }
 }
 
@@ -112,14 +138,23 @@ async function handleBattleMessage(message) {
         const line = lines[i];
         if (!line || line.trim() === '') continue;
 
-        console.log(`\x1b[92m\x1b[1m<<<\x1b[0m ${line}`);
+        if (DEBUG_MODE) {
+            console.log(`\x1b[92m\x1b[1m<<<\x1b[0m ${line}`);
+        }
 
         // 检查是否是对战初始化消息
         if (line.startsWith('|init|battle')) {
             console.log('\n🎮 对战开始！\n');
+            // 显示输入格式提示
+            console.log('📝 输入格式:');
+            console.log('   move 1 或 m1 (使用第1个招式)');
+            console.log('   move 1 tera 或 m1 t (使用第1个招式并太晶化)');
+            console.log('   switch 2 或 s2 (切换到第2个宝可梦)');
+            console.log('   team (查看己方队伍状态)\n');
             // 初始化对战状态
             battleState = new BattleState();
             messageHandler = new BattleMessageHandler(battleState, translator);
+            teamDisplayed = false; // 重置队伍展示标志
             continue;
         }
 
@@ -149,6 +184,10 @@ async function handleBattleMessage(message) {
                                 await handleForceSwitch();
                             }
                         });
+                    } else if (request.active && !teamDisplayed) {
+                        // 第一个 active 请求 - 展示队伍信息
+                        displayTeamFromRequest(request, translator);
+                        teamDisplayed = true;
                     }
                     // active 请求会在 |turn| 消息后处理
                 } catch (e) {
@@ -160,22 +199,18 @@ async function handleBattleMessage(message) {
         // 处理回合开始
         if (line.startsWith('|turn|')) {
             const turnNum = line.split('|')[2];
-            console.log(`\n${'='.repeat(60)}`);
-            console.log(`\x1b[1m\x1b[36m第 ${turnNum} 回合\x1b[0m`);
-            console.log('='.repeat(60));
 
-            // 显示双方队伍状态（使用适合服务器模式的显示方式）
-            if (battleState.player && battleState.opponent && battleState.currentRequest) {
-                displayBattleTeamStatus(battleState, battleState.currentRequest, translator);
-            }
-
-            // 等待用户按回车继续
+            // 在显示回合信息前等待用户按回车
             await new Promise(resolve => {
-                rl.question('\n按回车键继续...', () => {
+                rl.question('\n按回车开始第 ' + turnNum + ' 回合...', () => {
                     console.log('');
                     resolve();
                 });
             });
+
+            console.log(`${'='.repeat(60)}`);
+            console.log(`\x1b[1m\x1b[36m第 ${turnNum} 回合\x1b[0m`);
+            console.log('='.repeat(60));
 
             // 检查是否有待处理的请求
             if (battleState.currentRequest) {
@@ -189,7 +224,9 @@ async function handleBattleMessage(message) {
 
         // 处理对战结束
         if (line.startsWith('|win|') || line === '|tie') {
-            console.log(`\n[DEBUG] 对战结束消息: ${line}`);
+            if (DEBUG_MODE) {
+                console.log(`\n[DEBUG] 对战结束消息: ${line}`);
+            }
             console.log('\n' + '='.repeat(60));
             if (line.startsWith('|win|')) {
                 const winner = line.split('|')[2];
@@ -248,16 +285,9 @@ async function handleActiveRequest() {
     waitingForInput = true;
 
     const request = battleState.currentRequest;
-    console.log('\n💭 轮到你了！请选择行动：');
 
-    // 显示可用选项
-    displayChoices(request, battleState);
-
-    // 显示输入格式提示
-    console.log('\n📝 输入格式: move 1 或 m1 (使用第1个招式)');
-    console.log('           move 1 tera 或 m1 t (使用第1个招式并太晶化)');
-    console.log('           switch 2 或 s2 (切换到第2个宝可梦)');
-    console.log('           team (查看对手剩余宝可梦)');
+    // 显示可用选项（包括招式信息）
+    displayChoices(battleState, request, translator);
 
     // 获取玩家输入
     const choice = await getPlayerChoice(request);
@@ -281,7 +311,11 @@ function getPlayerChoice(request) {
         const askForInput = () => {
             rl.question('请输入你的选择: ', (answer) => {
                 const choice = validateChoice(answer.trim(), request);
-                if (choice) {
+                if (choice === 'team') {
+                    // 显示对手和己方队伍状态后继续等待输入
+                    displayBattleTeamStatus(battleState, request, translator);
+                    askForInput();
+                } else if (choice) {
                     resolve(choice);
                 } else {
                     console.log('❌ 无效的选择，请重新输入');
@@ -294,41 +328,12 @@ function getPlayerChoice(request) {
 }
 
 /**
- * 显示对手剩余宝可梦
- */
-function displayOpponentTeam() {
-    console.log('\n' + '='.repeat(60));
-    console.log('对手剩余宝可梦:');
-    console.log('='.repeat(60));
-
-    const opponentPokemon = battleState.opponentState.pokemon;
-
-    if (!opponentPokemon || opponentPokemon.length === 0) {
-        console.log('  无信息');
-    } else {
-        opponentPokemon.forEach((poke, index) => {
-            const status = poke.fainted ? '[已昏厥]' :
-                          poke.active ? '[出战中]' :
-                          poke.hp > 0 ? `[HP: ${Math.round((poke.hp / poke.maxhp) * 100)}%]` : '';
-
-            const pokemonName = translator.translate(poke.species, 'pokemon');
-            const displayName = poke.details ? `${pokemonName} (${poke.details})` : pokemonName;
-
-            console.log(`  ${index + 1}. ${displayName} ${status}`);
-        });
-    }
-
-    console.log('='.repeat(60) + '\n');
-}
-
-/**
  * 验证玩家选择
  */
 function validateChoice(input, request) {
-    // 特殊命令：team - 查看对手剩余宝可梦
+    // 特殊命令：team - 查看队伍状态（返回 'team' 让上层处理）
     if (input.toLowerCase() === 'team') {
-        displayOpponentTeam();
-        return null; // 返回 null 让玩家继续输入
+        return 'team';
     }
 
     // 解析输入 - 支持多种格式：
@@ -406,7 +411,9 @@ function validateChoice(input, request) {
  */
 function handleMessage(data) {
     const message = data.toString();
-    console.log(`[DEBUG] ${message}`);
+    if (DEBUG_MODE) {
+        console.log(`[DEBUG] ${message}`);
+    }
 
     // 分割消息（一个消息可能包含多行）
     const lines = message.split('\n');
@@ -501,4 +508,6 @@ if (require.main === module) {
     startClient();
 }
 
-module.exports = { startClient };
+module.exports = {
+    startClient
+};

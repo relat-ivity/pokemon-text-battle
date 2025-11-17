@@ -189,12 +189,12 @@ class BattleMessageHandler {
 		console.log(`\n${player} 派出了 ${nameCN} ${hp ? '(HP: ' + hp + ')' : ''}`);
 
 		if (isPlayer) {
-			this.state.player.switchPokemon(species, name, hp);
+			this.state.player.switchPokemon(species, name, hp, details);
 			if (this.debugMode) {
 				console.log(`[Debug] 玩家切换: name='${name}', species='${species}'`);
 			}
 		} else {
-			this.state.opponent.switchPokemon(species, name, hp);
+			this.state.opponent.switchPokemon(species, name, hp, details);
 			if (this.debugMode) {
 				console.log(`[Debug] 对手切换: name='${name}', species='${species}', hp='${hp}'`);
 			}
