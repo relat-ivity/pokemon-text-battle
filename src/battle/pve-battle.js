@@ -276,7 +276,7 @@ async function startPVEBattle() {
 	console.log('输入格式:');
 	console.log('    使用招式: move 1');
 	console.log('    切换宝可梦: switch 2');
-	console.log('    太晶化攻击: move 1 terastallize  (使用第1个招式并太晶化)');
+	console.log('    太晶化攻击: move 1 tera  (使用第1个招式并太晶化)');
 	console.log('    查看队伍: team  (查看所有宝可梦状态)');
 
 	// 选择对手

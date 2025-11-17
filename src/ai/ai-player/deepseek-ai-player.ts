@@ -674,7 +674,7 @@ ${this.getBaseSystemPrompt()}
 
 			let extraInfo = '';
 			if (active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
-				extraInfo += '\n提示: 可以在使用招式时同时太晶化（例如：move 1 terastallize）\n';
+				extraInfo += '\n提示: 可以在使用招式时同时太晶化（例如：move 1 tera）\n';
 			} else if (this.myTerastallizedPokemon !== null) {
 				const terastallizedCN = this.translate(this.myTerastallizedPokemon, 'pokemon');
 				extraInfo += `\n注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;

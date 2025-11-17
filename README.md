@@ -87,10 +87,10 @@ node src/battle/pve-server-battle.js
 在对战中，你可以使用以下指令：
 
 ```bash
-move 2              # 使用第2个招式
-switch 2            # 切换到第2只宝可梦，建议先用team查看宝可梦编号(对战中可能会改变)
-move 1 terastallize # 使用第1个招式并太晶化
-team                # 查看所有宝可梦状态
+move 2          # 使用第2个招式，可简化为m2
+switch 2        # 切换到第2只宝可梦，建议先用team查看宝可梦编号(对战中可能会改变)，可简化为s2
+move 1 tera     # 使用第1个招式并太晶化，可简化为m1 t
+team            # 查看所有宝可梦状态
 ```
 
 ### AI 对手
@@ -169,7 +169,7 @@ $ node pve-battle.js
 输入格式:
     使用招式: move 1
     切换宝可梦: switch 2
-    太晶化攻击: move 1 terastallize  (使用第1个招式并太晶化)
+    太晶化攻击: move 1 tera(使用第1个招式并太晶化)
     查看队伍: team  (查看所有宝可梦状态)
 
 请选择对手：

@@ -295,6 +295,15 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 			console.log(`   ${index + 1}. ${moveCN} [已禁用]`);
 		}
 	});
+
+	// 显示输入格式提示
+	console.log('\n📝 输入格式:');
+	console.log('   move 1 或 m1 (使用第1个招式)');
+	if (active.canTerastallize) {
+		console.log('   move 1 tera 或 m1 t (使用第1个招式并太晶化)');
+	}
+	console.log('   switch 2 或 s2 (切换到第2个宝可梦)');
+	console.log('   team (查看己方队伍状态)');
 }
 
 /**

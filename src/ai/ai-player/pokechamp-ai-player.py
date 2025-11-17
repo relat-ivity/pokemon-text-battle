@@ -88,6 +88,82 @@ async def main():
 
         # 创建一个包装类来添加调试日志
         class DebugLLMPlayer(LLMPlayer):
+            async def _handle_battle_message(self, split_messages):
+                # 获取 battle_tag（在第一个元素中）
+                battle_tag = ""
+                if split_messages and len(split_messages[0]) > 0:
+                    battle_tag = split_messages[0][0].replace(">", "")
+
+                print(f"[📩] 收到对战消息包，battle_tag = {battle_tag}", file=sys.stderr, flush=True)
+                print(f"[📩] 已注册的对战: {list(self._battles.keys())}", file=sys.stderr, flush=True)
+
+                # 检查每条消息，特别关注 turn 和 request
+                has_start_message = False
+                has_request_before_start = False
+
+                for split_message in split_messages:
+                    if len(split_message) > 1:
+                        if split_message[1] == "start":
+                            has_start_message = True
+                            print(f"[🚀] 收到 start 消息", file=sys.stderr, flush=True)
+                        elif split_message[1] == "turn":
+                            print(f"[⏱️] 收到 turn 消息: 回合 {split_message[2]}", file=sys.stderr, flush=True)
+                            if battle_tag in self._battles:
+                                battle = self._battles[battle_tag]
+                                print(f"[⏱️] 对战存在，当前 move_on_next_request = {battle.move_on_next_request}", file=sys.stderr, flush=True)
+                            else:
+                                print(f"[⚠️] 对战对象不存在！", file=sys.stderr, flush=True)
+                        elif split_message[1] == "request":
+                            print(f"[📨] 收到 request 消息", file=sys.stderr, flush=True)
+                            if battle_tag in self._battles:
+                                battle = self._battles[battle_tag]
+                                print(f"[📨] 在处理前 move_on_next_request = {battle.move_on_next_request}", file=sys.stderr, flush=True)
+                                # 检查是否是 start 之前的 request
+                                if not has_start_message and battle.turn == 0:
+                                    has_request_before_start = True
+                            # 打印 request 内容
+                            if len(split_message) > 2 and split_message[2]:
+                                print(f"[📨] Request 数据: {split_message[2][:200]}...", file=sys.stderr, flush=True)
+                        elif split_message[1] == "teampreview":
+                            print(f"[👥] 收到 teampreview 消息", file=sys.stderr, flush=True)
+
+                # 在调用父类方法之前，检查是否有未处理的 request
+                has_pending_request = False
+                pending_rqid = 0
+                if battle_tag in self._battles:
+                    battle = self._battles[battle_tag]
+                    # 检查是否收到了 request 但还没处理（move_on_next_request 仍为 False）
+                    if battle._rqid > 0 and not battle.move_on_next_request:
+                        has_pending_request = True
+                        pending_rqid = battle._rqid
+                        print(f"[🔧] 处理前检测：发现有未处理的 request (rqid={pending_rqid})", file=sys.stderr, flush=True)
+
+                # 调用父类方法
+                result = await super()._handle_battle_message(split_messages)
+
+                # 检查处理后的状态
+                if battle_tag in self._battles:
+                    battle = self._battles[battle_tag]
+                    print(f"[✅] 消息处理完成，move_on_next_request = {battle.move_on_next_request}", file=sys.stderr, flush=True)
+
+                    # 如果之前有未处理的 request，并且处理完后 move_on_next_request 变成了 True
+                    # 这意味着收到了 |turn| 消息，应该立即触发决策
+                    if has_pending_request and battle.move_on_next_request:
+                        print(f"[🔧] 检测到 request (rqid={pending_rqid}) 在 turn 之前到达，现在强制触发决策", file=sys.stderr, flush=True)
+                        # 调用决策方法
+                        await self._handle_battle_request(battle)
+                        # 调用后清除标志，避免重复处理
+                        battle.move_on_next_request = False
+
+                return result
+
+            async def _handle_battle_request(self, battle, **kwargs):
+                print(f"[🔔] _handle_battle_request 被调用！", file=sys.stderr, flush=True)
+                print(f"[🔔] 对战: {battle.battle_tag}, 回合: {battle.turn}", file=sys.stderr, flush=True)
+                result = await super()._handle_battle_request(battle, **kwargs)
+                print(f"[🔔] _handle_battle_request 完成", file=sys.stderr, flush=True)
+                return result
+
             def choose_move(self, battle):
                 print(f"[🎯] choose_move 被调用！回合: {battle.turn}", file=sys.stderr, flush=True)
                 print(f"[🎯] 对战标签: {battle.battle_tag}", file=sys.stderr, flush=True)

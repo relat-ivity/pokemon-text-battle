@@ -224,7 +224,7 @@ async function handleForceSwitch() {
     console.log('\n⚠️  你的宝可梦倒下了，必须切换！');
 
     // 显示可用的宝可梦
-    displaySwitchChoices(request, battleState);
+    displaySwitchChoices(request, translator);
 
     // 获取玩家输入
     const choice = await getPlayerChoice(request);
@@ -255,7 +255,9 @@ async function handleActiveRequest() {
 
     // 显示输入格式提示
     console.log('\n📝 输入格式: move 1 或 m1 (使用第1个招式)');
+    console.log('           move 1 tera 或 m1 t (使用第1个招式并太晶化)');
     console.log('           switch 2 或 s2 (切换到第2个宝可梦)');
+    console.log('           team (查看对手剩余宝可梦)');
 
     // 获取玩家输入
     const choice = await getPlayerChoice(request);
@@ -292,23 +294,62 @@ function getPlayerChoice(request) {
 }
 
 /**
+ * 显示对手剩余宝可梦
+ */
+function displayOpponentTeam() {
+    console.log('\n' + '='.repeat(60));
+    console.log('对手剩余宝可梦:');
+    console.log('='.repeat(60));
+
+    const opponentPokemon = battleState.opponentState.pokemon;
+
+    if (!opponentPokemon || opponentPokemon.length === 0) {
+        console.log('  无信息');
+    } else {
+        opponentPokemon.forEach((poke, index) => {
+            const status = poke.fainted ? '[已昏厥]' :
+                          poke.active ? '[出战中]' :
+                          poke.hp > 0 ? `[HP: ${Math.round((poke.hp / poke.maxhp) * 100)}%]` : '';
+
+            const pokemonName = translator.translate(poke.species, 'pokemon');
+            const displayName = poke.details ? `${pokemonName} (${poke.details})` : pokemonName;
+
+            console.log(`  ${index + 1}. ${displayName} ${status}`);
+        });
+    }
+
+    console.log('='.repeat(60) + '\n');
+}
+
+/**
  * 验证玩家选择
  */
 function validateChoice(input, request) {
-    // 解析输入 - 支持两种格式：
+    // 特殊命令：team - 查看对手剩余宝可梦
+    if (input.toLowerCase() === 'team') {
+        displayOpponentTeam();
+        return null; // 返回 null 让玩家继续输入
+    }
+
+    // 解析输入 - 支持多种格式：
     // 1. "m1", "s2" (简写)
     // 2. "move 1", "switch 2" (完整)
-    let action, index;
+    // 3. "m1 t", "m1 tera", "move 1 tera" (太晶化)
+    let action, index, terastallize = false;
 
-    const shortMatch = input.match(/^([ms])(\d+)$/i);
-    const longMatch = input.match(/^(move|switch)\s+(\d+)$/i);
+    // 匹配简写格式（m1, m1 t, m1 tera）
+    const shortMatch = input.match(/^([ms])(\d+)(?:\s+(t|tera|terastallize))?$/i);
+    // 匹配完整格式（move 1, move 1 tera, move 1 tera）
+    const longMatch = input.match(/^(move|switch)\s+(\d+)(?:\s+(t|tera|terastallize))?$/i);
 
     if (shortMatch) {
         action = shortMatch[1].toLowerCase();
         index = parseInt(shortMatch[2]);
+        terastallize = !!shortMatch[3];
     } else if (longMatch) {
         action = longMatch[1].toLowerCase() === 'move' ? 'm' : 's';
         index = parseInt(longMatch[2]);
+        terastallize = !!longMatch[3];
     } else {
         return null;
     }
@@ -323,6 +364,16 @@ function validateChoice(input, request) {
                     console.log('❌ 该招式不可用');
                     return null;
                 }
+
+                // 检查太晶化
+                if (terastallize) {
+                    if (!request.active[0].canTerastallize) {
+                        console.log('❌ 无法太晶化（已使用或不可用）');
+                        return null;
+                    }
+                    return `move ${index} terastallize`;
+                }
+
                 return `move ${index}`;
             }
         }
