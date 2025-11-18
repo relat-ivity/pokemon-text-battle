@@ -3,7 +3,7 @@
 
 可以以**文本形式**和AI进行宝可梦第九代宝可梦随机对战（gen9randombattle规则）。
 
-Version：0.3.0 (新增 PokéChamp AI)
+Version：0.4.0 (新增 PokéChamp AI)
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
