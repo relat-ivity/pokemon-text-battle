@@ -9,6 +9,11 @@
 
 const WebSocket = require('ws');
 const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
+
+const DEBUG_MODE = process.env.DEBUG_MODE === 'true'; // 在 .env 中设置 DEBUG_MODE=true 开启调试
 const {
     BattleState
 } = require('../battle_common/battle-state');
@@ -31,8 +36,52 @@ const translator = Translator.getInstance('cn');
 // 配置
 const SERVER_URL = 'ws://localhost:8000/showdown/websocket';
 const PLAYER_USERNAME = 'Player';
-const BATTLE_FORMAT = 'gen9randombattle';
-const DEBUG_MODE = false; // 设置为 true 以显示详细调试信息
+const BATTLE_FORMAT = process.env.SERVER_BATTLE_FORMAT || 'gen9randombattle';
+
+/**
+ * 从队伍文件夹随机加载一个队伍并转换为打包格式
+ * @returns {string|null} 打包格式的队伍字符串，如果加载失败则返回 null
+ */
+function loadRandomTeam() {
+    try {
+        // 队伍文件夹路径
+        const teamsDir = path.join(__dirname, '../../pokechamp-ai/poke_env/data/static/teams/gen9ou');
+
+        // 读取目录中的所有队伍文件
+        const files = fs.readdirSync(teamsDir).filter(f => f.endsWith('.txt'));
+
+        if (files.length === 0) {
+            console.log('⚠️  未找到队伍文件');
+            return null;
+        }
+
+        // 随机选择一个文件
+        const randomFile = files[Math.floor(Math.random() * files.length)];
+        const teamPath = path.join(teamsDir, randomFile);
+
+        // 读取队伍内容
+        const teamContent = fs.readFileSync(teamPath, 'utf-8');
+        console.log(`📦 已加载队伍: ${randomFile}`);
+
+        // 使用 pokemon-showdown 库将队伍转换为打包格式
+        const Sim = require('pokemon-showdown');
+        const team = Sim.Teams.import(teamContent);
+        if (!team || team.length === 0) {
+            console.error('⚠️  队伍解析失败');
+            return null;
+        }
+
+        const packedTeam = Sim.Teams.pack(team);
+        if (DEBUG_MODE) {
+            console.log(`[DEBUG] 打包队伍: ${packedTeam.substring(0, 100)}...`);
+        }
+
+        return packedTeam;
+    } catch (error) {
+        console.error('⚠️  加载队伍失败:', error.message);
+        return null;
+    }
+}
 
 // 全局状态
 let ws = null;
@@ -43,6 +92,7 @@ let rl = null;
 let waitingForInput = false;
 let challengeSent = false; // 标志：是否已发送挑战
 let teamDisplayed = false; // 标志：是否已展示队伍信息
+let opponentPokemon = []; // 对手的宝可梦列表（用于队伍预览）
 
 /**
  * 创建 readline 接口
@@ -96,8 +146,20 @@ function handleUpdateUser(parts) {
         return;
     }
 
-    // 设置队伍为 null（随机队伍）
-    sendMessage('/utm null');
+    // 根据对战格式决定是否需要加载队伍
+    if (BATTLE_FORMAT.includes('random')) {
+        // 随机对战格式使用 null（服务器生成随机队伍）
+        sendMessage('/utm null');
+    } else {
+        // 非随机对战格式需要加载队伍
+        const team = loadRandomTeam();
+        if (team) {
+            sendMessage(`/utm ${team}`);
+        } else {
+            console.log('⚠️  将使用空队伍（可能导致对战失败）');
+            sendMessage('/utm null');
+        }
+    }
 
     // 如果有 POKECHAMP_ID 环境变量，发送挑战；否则搜索对战
     const pokechampId = process.env.POKECHAMP_ID;
@@ -178,20 +240,34 @@ async function handleBattleMessage(message) {
             playerMoveShown = true;
         }
 
+        // 收集对手宝可梦信息（队伍预览阶段）
+        // 格式: |poke|p2|Pokemon, L50, M|item
+        if (line.startsWith('|poke|p2|')) {
+            const parts = line.split('|');
+            if (parts.length >= 4) {
+                const pokemonInfo = parts[3].split(',')[0]; // 只取宝可梦名称
+                opponentPokemon.push(pokemonInfo);
+            }
+        }
+
         // 处理请求消息
         if (line.startsWith('|request|')) {
             const requestJson = line.substring('|request|'.length);
-            if (requestJson && requestJson !== 'null' && battleState) {
+            if (requestJson && requestJson !== 'null') {
+                // 如果 battleState 还未初始化，先初始化它
+                if (!battleState) {
+                    battleState = new BattleState();
+                    messageHandler = new BattleMessageHandler(battleState, translator);
+                    teamDisplayed = false;
+                }
                 try {
                     const request = JSON.parse(requestJson);
                     battleState.setCurrentRequest(request);
 
                     // 判断请求类型
                     if (request.teamPreview) {
-                        // 队伍预览 - 立即发送默认队伍顺序
-                        console.log('\n📋 队伍预览（gen9randombattle 随机对战）');
-                        const teamOrder = `/choose default`;
-                        sendMessage(teamOrder, currentBattleRoom);
+                        // 队伍预览 - 等待 |teampreview| 消息后再处理
+                        // 不在这里处理，等待 |teampreview| 消息
                     } else if (request.forceSwitch) {
                         // 强制切换 - 标记有请求，等待消息块结束后处理
                         hasRequest = true;
@@ -204,6 +280,14 @@ async function handleBattleMessage(message) {
                 } catch (e) {
                     console.error('❌ 解析请求失败:', e.message);
                 }
+            }
+        }
+
+        // 处理队伍预览消息（在 |poke| 消息之后到达）
+        if (line.startsWith('|teampreview')) {
+            // 此时 opponentPokemon 已经收集完毕，可以显示选择界面
+            if (battleState && battleState.currentRequest && battleState.currentRequest.teamPreview) {
+                await handleTeamPreview(battleState.currentRequest);
             }
         }
 
@@ -279,6 +363,75 @@ async function handleBattleMessage(message) {
             await handleForceSwitch();
         }
     }
+}
+
+/**
+ * 处理队伍预览请求
+ */
+async function handleTeamPreview(request) {
+    console.log('\n📋 队伍预览 - 选择首发宝可梦');
+    console.log('='.repeat(50));
+
+    // 将对手宝可梦信息添加到 battleState
+    if (opponentPokemon.length > 0) {
+        battleState.opponent.addFromTeamPreview(opponentPokemon);
+    }
+
+    // 显示对手的宝可梦
+    pokeLog = '【对手队伍】';
+    if (opponentPokemon.length > 0) {
+        opponentPokemon.forEach((name, index) => {
+            const translatedName = translator.translate(name, 'pokemon');
+            pokeLog += `${translatedName} `;
+        });
+    } else {
+        console.log('   (未知)');
+    }
+
+    console.log(pokeLog);
+
+    // 显示己方队伍中的所有宝可梦
+    pokeLog = '【你的队伍】';
+    const pokemon = request.side.pokemon;
+    pokemon.forEach((poke, index) => {
+        const name = poke.details.split(',')[0];
+        const translatedName = translator.translate(name, 'pokemon');
+        pokeLog += `${translatedName} `;
+    });
+    console.log(pokeLog);
+    console.log('输入格式: 1 (选择第1个宝可梦作为首发)');
+
+    // 获取玩家选择
+    const choice = await new Promise((resolve) => {
+        const askForInput = () => {
+            rl.question('请选择首发宝可梦: ', (answer) => {
+                const num = parseInt(answer.trim());
+                if (num >= 1 && num <= pokemon.length) {
+                    resolve(num);
+                } else {
+                    console.log('❌ 无效的选择，请输入 1-' + pokemon.length);
+                    askForInput();
+                }
+            });
+        };
+        askForInput();
+    });
+
+    // 构建队伍顺序：首发在前，其他按原顺序
+    const teamOrder = [choice];
+    for (let i = 1; i <= pokemon.length; i++) {
+        if (i !== choice) {
+            teamOrder.push(i);
+        }
+    }
+
+    // 发送选择
+    const orderStr = teamOrder.join('');
+    console.log(`\n📤 发送队伍顺序: ${orderStr}`);
+    sendMessage(`/choose team ${orderStr}`, currentBattleRoom);
+
+    // 清除请求
+    battleState.clearCurrentRequest();
 }
 
 /**

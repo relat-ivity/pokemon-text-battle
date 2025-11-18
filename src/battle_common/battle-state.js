@@ -418,6 +418,28 @@ class OpponentState extends PokemonState {
 	getRemainingCount() {
 		return this.totalPokemonCount - this.faintedPokemon.size;
 	}
+
+	/**
+	 * 从队伍预览添加宝可梦列表
+	 * @param {string[]} pokemonNames - 宝可梦名称数组
+	 */
+	addFromTeamPreview(pokemonNames) {
+		pokemonNames.forEach(name => {
+			const normalizedSpecies = normalizeSpeciesName(name);
+			if (!this.seenPokemon.has(normalizedSpecies)) {
+				this.seenPokemon.set(normalizedSpecies, {
+					species: name,
+					level: 100,
+					hp: 100,
+					maxhp: 100,
+					condition: '100/100',
+					active: false,
+					fainted: false
+				});
+			}
+		});
+		this.totalPokemonCount = pokemonNames.length;
+	}
 }
 
 /**

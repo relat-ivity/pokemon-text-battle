@@ -11,9 +11,6 @@ import os
 import asyncio
 from pathlib import Path
 
-# 调试模式开关
-DEBUG_MODE = False  # 设置为 True 以显示详细调试信息
-
 # 加载 .env 文件
 try:
     from dotenv import load_dotenv
@@ -27,6 +24,9 @@ try:
 except ImportError:
     print("[⚠️] python-dotenv 未安装，将使用系统环境变量", file=sys.stderr, flush=True)
 
+# 调试模式开关 - 从环境变量读取
+DEBUG_MODE = os.environ.get("DEBUG_MODE", "false").lower() == "true"
+
 # Add pokechamp to path (向上三级到项目根目录)
 pokechamp_path = Path(__file__).parent.parent.parent.parent / 'pokechamp-ai'
 sys.path.insert(0, str(pokechamp_path))
@@ -36,7 +36,7 @@ if DEBUG_MODE:
     print(f"[DEBUG] pokechamp_path.exists() = {pokechamp_path.exists()}", file=sys.stderr, flush=True)
 
 try:
-    from poke_env.player.team_util import get_llm_player
+    from poke_env.player.team_util import get_llm_player, load_random_team
     from poke_env.ps_client.server_configuration import LocalhostServerConfiguration
     import poke_env.player.player as player_module
 
@@ -56,7 +56,7 @@ async def main():
     # 从环境变量读取配置
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     backend = os.environ.get("POKECHAMP_LLM_BACKEND", "deepseek/deepseek-chat-v3.1:free")
-    battle_format = "gen9randombattle"
+    battle_format = os.environ.get("SERVER_BATTLE_FORMAT", "gen9randombattle")
 
     # 从命令行参数获取唯一ID，如果没有则生成一个
     import time
@@ -192,7 +192,17 @@ async def main():
                 return result
         from pokechamp.prompts import state_translate2
 
-        # 使用OpenRouter AI
+        # 根据对战格式决定是否需要加载队伍
+        team = None
+        if 'random' not in battle_format:
+            # 非随机对战格式需要加载队伍
+            try:
+                team = load_random_team()
+                print(f"[📦] 已加载随机队伍", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"[⚠️] 加载队伍失败: {e}", file=sys.stderr, flush=True)
+                print(f"[⚠️] 将使用空队伍（可能导致对战失败）", file=sys.stderr, flush=True)
+
         player = DebugLLMPlayer(battle_format=battle_format,
                            api_key=api_key,
                            backend=backend,
@@ -202,9 +212,10 @@ async def main():
                            account_configuration=AccountConfiguration(f"pokechamp{unique_id}", ""),
                            server_configuration=None,
                            save_replays="./battle_log",
-                           prompt_translate=state_translate2,
+                           prompt_translate=state_translate2, # 注释掉prompt_translate可不用LLM对战
                            device=0,
-                           llm_backend=None)
+                           llm_backend=None,
+                           team=team)
 
         print(f"[✓] PokéChamp AI 初始化成功", file=sys.stderr, flush=True)
         print(f"[📝] 用户名: {player.username}", file=sys.stderr, flush=True)
