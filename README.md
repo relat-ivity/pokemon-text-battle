@@ -97,37 +97,36 @@ team            # 查看所有宝可梦状态
 
 项目支持 5 种 AI 对手，难度逐级递增：
 
-#### 1. PokéChamp AI 🏆 (最强！)**仅服务器模式**
+#### 1. PokéChamp AI 🏆 **仅服务器模式**
 
 ICML 2025 获奖的强大 AI，采用 Minimax 树搜索 + LLM 混合策略
 - **性能**: 84% 胜率（vs 规则类AI）
 - **支持后端**: 10+ 种 LLM（GPT-4o、Gemini、DeepSeek、本地模型等）
-- **⚠️ 注意**: 仅在服务器对战模式中可用（需要完整的 Battle 对象）
+- **⚠️ 注意**: 仅在服务器对战模式中可用
 
-详细配置请查看 [PokéChamp AI 文档](./docs/POKECHAMP_AI_GUIDE.md)
+详细配置请查看 [PokéChamp AI文档](./docs/POKECHAMP_AI_GUIDE.md)
 
-#### 2. DeepSeek AI 💰 (性价比最高) **本地模式**
+#### 2. DeepSeek AI 🧠 **本地模式**
 使用 DeepSeek LLM 进行智能决策
 
 ```bash
 # 设置 API 密钥，或者在.env文件中添加
 export DEEPSEEK_API_KEY="你的API密钥"
 npm run battle
-
 # 选择菜单中选择 "1. DeepSeek AI"
 ```
 
 详细配置请查看 [DeepSeek AI 文档](./docs/DEEPSEEK_AI_GUIDE.md)
 
-#### 3. Master AI 🥇 (强大本地AI) **本地模式**
+#### 3. 本地大师AI 🥇 **本地模式**
 高级本地策略AI，无需API密钥
 
 ```bash
 npm run battle
-# 选择菜单中选择 "2. Master AI (强大对手)"
+# 选择菜单中选择 "2. 本地大师AI"
 ```
 
-#### 4. 本地智能AI 🧠 (智能AI) **本地模式**
+#### 4. 本地智能AI 🥈 **本地模式**
 基于属性克制和招式评分的本地智能AI
 
 ```bash
