@@ -133,6 +133,11 @@ async function handleBattleMessage(message) {
         currentBattleRoom = roomLine.substring(1);
     }
 
+    // 标记是否检测到相关事件
+    let playerFainted = false;      // 玩家宝可梦倒下
+    let hasRequest = false;         // 当前消息块包含 forceSwitch 请求
+    let playerMoveShown = false;    // 玩家的招式效果已显示
+
     // 处理每一行消息
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
@@ -163,6 +168,16 @@ async function handleBattleMessage(message) {
             messageHandler.handleMessage(line);
         }
 
+        // 检测玩家宝可梦倒下
+        if (line.startsWith('|faint|p1')) {
+            playerFainted = true;
+        }
+
+        // 检测玩家使用招式（用于切换招式的情况）
+        if (line.startsWith('|move|p1')) {
+            playerMoveShown = true;
+        }
+
         // 处理请求消息
         if (line.startsWith('|request|')) {
             const requestJson = line.substring('|request|'.length);
@@ -178,18 +193,14 @@ async function handleBattleMessage(message) {
                         const teamOrder = `/choose default`;
                         sendMessage(teamOrder, currentBattleRoom);
                     } else if (request.forceSwitch) {
-                        // 强制切换 - 使用 process.nextTick 延迟处理
-                        process.nextTick(async () => {
-                            if (battleState.currentRequest && !waitingForInput) {
-                                await handleForceSwitch();
-                            }
-                        });
+                        // 强制切换 - 标记有请求，等待消息块结束后处理
+                        hasRequest = true;
                     } else if (request.active && !teamDisplayed) {
                         // 第一个 active 请求 - 展示队伍信息
                         displayTeamFromRequest(request, translator);
                         teamDisplayed = true;
                     }
-                    // active 请求会在 |turn| 消息后处理
+                    // forceSwitch 和 active 请求会在消息块处理完毕后处理
                 } catch (e) {
                     console.error('❌ 解析请求失败:', e.message);
                 }
@@ -248,6 +259,26 @@ async function handleBattleMessage(message) {
             }, 2000);
         }
     }
+
+    // 消息块处理完毕后，检查是否需要处理 forceSwitch
+    // 必须满足以下条件之一：
+    // 1. playerFainted - 当前消息块包含 |faint|p1（宝可梦倒下）
+    // 2. playerMoveShown - 当前消息块包含 |move|p1（切换招式的效果已显示）
+    if (battleState && battleState.currentRequest && battleState.currentRequest.forceSwitch && !waitingForInput) {
+        // 检查是否是宝可梦倒下的情况
+        const activePokemon = battleState.currentRequest.side?.pokemon?.find(p => p.active);
+        const isFaintSituation = activePokemon && activePokemon.condition.endsWith(' fnt');
+
+        if (isFaintSituation) {
+            // 宝可梦倒下 - 必须等到 |faint|p1 消息显示后才处理
+            if (playerFainted) {
+                await handleForceSwitch();
+            }
+        } else if (playerMoveShown) {
+            // 切换招式 - 必须等到 |move|p1 消息显示后才处理
+            await handleForceSwitch();
+        }
+    }
 }
 
 /**
@@ -258,7 +289,14 @@ async function handleForceSwitch() {
     waitingForInput = true;
 
     const request = battleState.currentRequest;
-    console.log('\n⚠️  你的宝可梦倒下了，必须切换！');
+
+    // 检查是否是因为宝可梦倒下（通过检查当前宝可梦的状态）
+    const activePokemon = request.side?.pokemon?.find(p => p.active);
+    if (activePokemon && activePokemon.condition.endsWith(' fnt')) {
+        console.log('\n⚠️  你的宝可梦倒下了，必须切换！');
+    } else {
+        console.log('\n🔄 请选择要切换上场的宝可梦：');
+    }
 
     // 显示可用的宝可梦
     displaySwitchChoices(request, translator);
@@ -466,7 +504,6 @@ function cleanup() {
  * 启动客户端
  */
 function startClient() {
-    console.log('🚀 PokéChamp 本地对战客户端');
     console.log('='.repeat(60));
     console.log(`📡 连接服务器: ${SERVER_URL}`);
     console.log(`👤 玩家名称: ${PLAYER_USERNAME}`);

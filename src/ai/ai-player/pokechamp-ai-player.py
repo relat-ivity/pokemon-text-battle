@@ -190,18 +190,21 @@ async def main():
                 # 保留这个，显示 AI 的选择
                 print(f"[AI] 选择: {result}", file=sys.stderr, flush=True)
                 return result
+        from pokechamp.prompts import state_translate2
 
-        player = DebugLLMPlayer(
-            battle_format=battle_format,
-            api_key=api_key,
-            backend=backend,
-            temperature=0.7,
-            prompt_algo="minimax",  # 使用 Minimax + LLM
-            log_dir="./battle_log",
-            K=2,  # Minimax 树深度
-            account_configuration=AccountConfiguration(f"pokechamp{unique_id}", ""),
-            server_configuration=LocalhostServerConfiguration  # 直接使用本地服务器配置
-        )
+        # 使用OpenRouter AI
+        player = DebugLLMPlayer(battle_format=battle_format,
+                           api_key=api_key,
+                           backend=backend,
+                           temperature=0.3,
+                           prompt_algo="minimax",
+                           log_dir="./battle_log",
+                           account_configuration=AccountConfiguration(f"pokechamp{unique_id}", ""),
+                           server_configuration=None,
+                           save_replays="./battle_log",
+                           prompt_translate=state_translate2,
+                           device=0,
+                           llm_backend=None)
 
         print(f"[✓] PokéChamp AI 初始化成功", file=sys.stderr, flush=True)
         print(f"[📝] 用户名: {player.username}", file=sys.stderr, flush=True)
