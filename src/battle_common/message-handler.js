@@ -1306,7 +1306,7 @@ class BattleMessageHandler {
 		const abilityName = abilityData.name || ability;
 		const abilityCN = this.translate(abilityName, 'abilities');
 
-		if (from) {
+		if (from && from !== 'boost') {
 			let fromCN = from;
 			if (from.startsWith('[from] ability: ')) {
 				const fromAbility = from.replace('[from] ability: ', '');
@@ -1314,7 +1314,7 @@ class BattleMessageHandler {
 			}
 			console.log(`  → ${player} ${speciesCN} 的特性变为${abilityCN}! (${fromCN})`);
 		} else {
-			console.log(`  → ${player} ${speciesCN} 的${abilityCN}发动了!`);
+			console.log(`  → ${player} ${speciesCN} 的特性 ${abilityCN} 发动了!`);
 		}
 	}
 
