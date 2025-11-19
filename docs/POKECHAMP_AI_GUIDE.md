@@ -444,7 +444,7 @@ POKECHAMP_LLM_BACKEND=openai/gpt-4o-mini
 **A**: 不可以。需要重新启动程序。修改 `.env` 文件中的 `POKECHAMP_LLM_BACKEND` 变量后，重新运行 `npm run battle` 即可。
 
 ### Q: PokéChamp 支持哪些宝可梦世代？
-**A**: 当前配置支持 Gen 9 随机对战（`gen9randombattle`）。原始 PokéChamp 项目还支持 Gen 1-4 和 Gen 9 OU 格式。
+**A**: 当前配置支持 Gen 9 随机对战（`gen9randombattle`）和 Gen 9 OU（`gen9ou`）对战格式。原始 PokéChamp 项目还支持 Gen 1-4 格式。
 
 ### Q: 如何获得最佳性能？
 **A**:

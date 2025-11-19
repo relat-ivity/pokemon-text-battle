@@ -29,7 +29,7 @@
 
 **关键点：**
 - 基于 Pokemon Showdown 模拟器
-- 完整的第九代规则支持 (gen9randombattle)
+- 完整的第九代规则支持 (gen9randombattle, gen9ou)
 - 多种 AI 实现，难度不同
 - 完整的中文语言支持和翻译系统
 - 需要 Node.js 18+
@@ -118,7 +118,7 @@ tests/                  # 测试文件
 - **ai-player-factory.ts**：根据类型创建 AI 实例的工厂
 - **ai-player/master-ai-player.ts**：高级智能 AI，使用更复杂的启发式算法
 - **ai-player/smart-ai-player.ts**：本地智能 AI，评估招式威力和属性克制
-- **ai-player/deepseek-ai-player.ts**：基于 LLM 的 AI，使用 DeepSeek API（有本地 AI 降级）
+- **ai-player/deepseek-ai-player.ts**：基于 LLM 的 AI，使用 DeepSeek API（有本地 AI 降级），支持作弊模式（获取对手操作信息）
 - **ai-player/random-ai-player.ts**：随机选择招式/切换，用于测试
 
 **关键方法：**
@@ -139,6 +139,7 @@ tests/                  # 测试文件
   - 支持多种免费和付费 LLM 模型（默认使用免费的 DeepSeek）
   - **注意：** PokéChamp AI 需要完整的 Battle 对象，因此只能在服务器模式下使用
   - 等待玩家发起挑战后自动应战
+  - 支持 gen9randombattle 和 gen9ou 对战格式
 
 **历史遗留（已删除）：**
 - **ai-support/pokechamp-service.py**：旧版本的 PokéChamp AI 服务（已删除）
@@ -171,7 +172,7 @@ npm run battle
 ```
 
 **支持的 AI 对手：**
-- DeepSeek AI（需要 `DEEPSEEK_API_KEY`）
+- DeepSeek AI（需要 `DEEPSEEK_API_KEY`，支持作弊模式）
 - Master AI（高级启发式）
 - 智能 AI（基础启发式）
 - 随机 AI（用于测试）

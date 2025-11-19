@@ -1,7 +1,7 @@
 
 # Pokémon Text Battle
 
-可以以**文本形式**和AI进行宝可梦第九代宝可梦随机对战（gen9randombattle规则）。
+可以以**文本形式**和AI进行宝可梦第九代对战（支持 gen9randombattle 和 gen9ou 规则）。
 
 Version：0.4.0
 
@@ -10,10 +10,10 @@ Version：0.4.0
 
 ## ✨ 特性
 
-- 🎮 **完整的第九代对战系统**：支持太晶化、50级对战、随机队伍生成
+- 🎮 **完整的第九代对战系统**：支持太晶化、50级对战、随机队伍生成，支持 gen9randombattle 和 gen9ou 格式
 - 🤖 **多种AI对手**：
   - **PokéChamp AI** - ICML 2025 获奖的 Minimax + LLM 混合AI，支持 10+ 种 LLM 后端
-  - **DeepSeek AI** - 高性能、低成本的 LLM AI
+  - **DeepSeek AI** - 高性能、低成本的 LLM AI，支持作弊模式
   - **本地大师AI** - 强大的本地策略AI
   - **本地智能AI** - 基于属性克制的智能决策
   - **随机AI** - 用于测试的随机选择
@@ -107,7 +107,7 @@ ICML 2025 获奖的强大 AI，采用 Minimax 树搜索 + LLM 混合策略
 详细配置请查看 [PokéChamp AI文档](./docs/POKECHAMP_AI_GUIDE.md)
 
 #### 2. DeepSeek AI 🧠 **本地模式**
-使用 DeepSeek LLM 进行智能决策
+使用 DeepSeek LLM 进行智能决策，支持作弊模式（获取对手操作信息）
 
 ```bash
 # 设置 API 密钥，或者在.env文件中添加
