@@ -5,9 +5,12 @@
  * 运行方式：npm run battle 或 node src/battle/pve-battle.js
  */
 
+require('dotenv').config();
 const Sim = require('pokemon-showdown');
 const { AIPlayerFactory } = require('../../dist/ai/ai-player-factory');
 const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
 const { Translator } = require('../../dist/support/translator');
 const { BattleState } = require('../battle_common/battle-state');
 const { BattleMessageHandler } = require('../battle_common/message-handler');
@@ -42,9 +45,44 @@ function prompt(question) {
 }
 
 /**
+ * 从文件加载队伍
+ * @returns {{ team: Array, fileName: string } | null}
+ */
+function loadTeamFromFile(format) {
+	const teamsDir = path.join(__dirname, '../../pokechamp-ai/poke_env/data/static/teams', format);
+
+	if (!fs.existsSync(teamsDir)) {
+		return null;
+	}
+
+	const teamFiles = fs.readdirSync(teamsDir).filter(f => f.endsWith('.txt'));
+	if (teamFiles.length === 0) {
+		return null;
+	}
+
+	// 随机选择一个队伍文件
+	const randomFile = teamFiles[Math.floor(Math.random() * teamFiles.length)];
+	const teamText = fs.readFileSync(path.join(teamsDir, randomFile), 'utf-8');
+
+	// 使用 Pokemon Showdown 解析队伍
+	const team = Sim.Teams.import(teamText);
+	return { team, fileName: randomFile };
+}
+
+/**
  * 生成符合规则的队伍
+ * @returns {{ team: Array, fileName: string | null }}
  */
 function generateValidTeam(format) {
+	// 对于非随机对战格式，尝试从文件加载队伍
+	if (!format.includes('random')) {
+		const result = loadTeamFromFile(format);
+		if (result && result.team && result.team.length > 0) {
+			return { team: result.team, fileName: result.fileName };
+		}
+		console.log(`⚠️  未找到 ${format} 的预设队伍，使用随机生成`);
+	}
+
 	const validator = new Sim.TeamValidator(format);
 	let team = Sim.Teams.generate('gen9randombattle');
 
@@ -54,13 +92,14 @@ function generateValidTeam(format) {
 	}
 
 	// 标准化队伍：50级，努力值85，个体值31，性格Hardy
-	return team.map(pokemon => ({
+	const normalizedTeam = team.map(pokemon => ({
 		...pokemon,
 		level: 50,
 		nature: 'Hardy',
 		ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
 		evs: { hp: 85, atk: 85, def: 85, spa: 85, spd: 85, spe: 85 }
 	}));
+	return { team: normalizedTeam, fileName: null };
 }
 
 /**
@@ -321,10 +360,21 @@ async function startPVEBattle() {
 	const { opponent, aiType } = await selectOpponent();
 
 	// 生成队伍
-	const format = 'gen9ou';
+	const format = process.env.LOCAL_BATTLE_FORMAT || 'gen9ou';
 	const playerName = 'Player';
-	const p1team = generateValidTeam(format);
-	const p2team = generateValidTeam(format);
+	console.log(`\n✓ 对战格式: ${format}`);
+	const p1result = generateValidTeam(format);
+	const p2result = generateValidTeam(format);
+	const p1team = p1result.team;
+	const p2team = p2result.team;
+
+	// 显示队伍文件名
+	if (p1result.fileName) {
+		console.log(`✓ 玩家队伍: ${p1result.fileName}`);
+	}
+	if (p2result.fileName) {
+		console.log(`✓ AI队伍: ${p2result.fileName}`);
+	}
 
 	// 创建战斗流
 	const streams = Sim.getPlayerStreams(new Sim.BattleStream());

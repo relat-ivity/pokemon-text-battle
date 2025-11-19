@@ -56,7 +56,7 @@ async def main():
     # 从环境变量读取配置
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     backend = os.environ.get("POKECHAMP_LLM_BACKEND", "deepseek/deepseek-chat-v3.1:free")
-    battle_format = os.environ.get("SERVER_BATTLE_FORMAT", "gen9randombattle")
+    battle_format = os.environ.get("SERVER_BATTLE_FORMAT", "gen9ou")
 
     # 从命令行参数获取唯一ID，如果没有则生成一个
     import time

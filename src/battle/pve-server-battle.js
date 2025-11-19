@@ -36,7 +36,7 @@ const translator = Translator.getInstance('cn');
 // 配置
 const SERVER_URL = 'ws://localhost:8000/showdown/websocket';
 const PLAYER_USERNAME = 'Player';
-const BATTLE_FORMAT = process.env.SERVER_BATTLE_FORMAT || 'gen9randombattle';
+const BATTLE_FORMAT = process.env.SERVER_BATTLE_FORMAT || 'gen9ou';
 
 /**
  * 从队伍文件夹随机加载一个队伍并转换为打包格式

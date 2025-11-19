@@ -29,7 +29,6 @@
 
 **关键点：**
 - 基于 Pokemon Showdown 模拟器
-- 完整的第九代规则支持 (gen9randombattle, gen9ou)
 - 多种 AI 实现，难度不同
 - 完整的中文语言支持和翻译系统
 - 需要 Node.js 18+
