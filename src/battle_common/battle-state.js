@@ -24,11 +24,10 @@ function normalizeSpeciesName(name) {
 	}
 
 	// 如果没有括号，去掉地区形态后缀
-	// 常见的后缀模式：-Hisui, -Alola, -Galar, -Paldea, -Yellow, -Red, -Blue 等
-	const baseMatch = name.match(/^([A-Za-z]+)(?:-[A-Za-z]+)?$/);
-	if (baseMatch) {
-		const withoutSuffix = name.split('-')[0]; // 去掉第一个 - 之后的所有内容
-		return withoutSuffix;
+	// 常见的后缀模式：-Hisui, -Alola, -Galar, -Paldea, -Yellow, -Red, -Blue, -* 等
+	// 只要名称包含 -，就取第一部分作为基础名称
+	if (name.includes('-')) {
+		return name.split('-')[0];
 	}
 
 	return name;
