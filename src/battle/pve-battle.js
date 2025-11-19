@@ -165,7 +165,7 @@ async function getPlayerChoice() {
 /**
  * 创建玩家选择处理器
  */
-function createPlayerChoiceHandler(battleState, streams) {
+function createPlayerChoiceHandler(battleState, streams, ai) {
 	return async function handlePlayerChoice() {
 		if (battleState.isProcessingChoice || battleState.battleEnded) return;
 		battleState.startProcessingChoice();
@@ -182,6 +182,10 @@ function createPlayerChoiceHandler(battleState, streams) {
 					battleState.endProcessingChoice();
 					await handlePlayerChoice();
 				} else {
+					// 通知 AI 玩家的选择（用于作弊功能）
+					if (ai && typeof ai.setPlayerChoice === 'function') {
+						ai.setPlayerChoice(choice);
+					}
 					// 直接写入选择，不需要 >p1 前缀
 					streams.p1.write(choice);
 					battleState.endProcessingChoice();
@@ -201,7 +205,7 @@ function createPlayerChoiceHandler(battleState, streams) {
 /**
  * 启动消息处理循环
  */
-async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOrder) {
+async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOrder, ai) {
 	const messageHandler = new BattleMessageHandler(battleState, translator, debug_mode);
 
 		try {
@@ -253,6 +257,10 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 									console.log('\n等待对手行动...');
 							} else if (request.teamPreview) {
 								// 队伍预览请求立即处理
+								// 通知 AI 玩家的队伍顺序（用于作弊功能）
+								if (ai && typeof ai.setPlayerTeamOrder === 'function') {
+									ai.setPlayerTeamOrder(teamOrder);
+								}
 									streams.p1.write(`team ${teamOrder}`);
 									if (debug_mode) console.log(`[Debug] 正在应用队伍顺序: ${teamOrder}`);
 								battleState.clearCurrentRequest();
@@ -395,7 +403,7 @@ async function startPVEBattle() {
 	const battleState = new BattleState(p1team, p2team);
 
 	// 创建玩家选择处理器
-	const handlePlayerChoice = createPlayerChoiceHandler(battleState, streams);
+	const handlePlayerChoice = createPlayerChoiceHandler(battleState, streams, ai);
 
 	// 设置战斗参数
 	const spec = { formatid: format };
@@ -408,7 +416,7 @@ async function startPVEBattle() {
 	streams.omniscient.write(`>start ${JSON.stringify(spec)}\n>player p1 ${JSON.stringify(p1spec)}\n>player p2 ${JSON.stringify(p2spec)}`);
 
 	// 启动消息处理循环
-	await startMessageLoop(battleState, streams, handlePlayerChoice, teamOrder);
+	await startMessageLoop(battleState, streams, handlePlayerChoice, teamOrder, ai);
 
 	// 等待战斗结束
 	while (!battleState.battleEnded) {

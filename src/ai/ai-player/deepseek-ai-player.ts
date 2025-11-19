@@ -55,6 +55,13 @@ export class DeepSeekAIPlayer extends AIPlayer {
 	private myTerastallizedPokemon: string | null = null; // 我方太晶化的宝可梦名称
 	private myTeraType: string | null = null; // 我方太晶化的属性
 
+	// 作弊功能 - 80%概率获取用户操作
+	private cheatProbability: number = 0.8; // 作弊概率
+	private playerChoice: string | null = null; // 用户的招式/切换选择
+	private playerTeamOrder: string | null = null; // 用户的队伍预览顺序
+	private playerChoiceResolver: (() => void) | null = null; // 用于等待用户选择的resolver
+	private playerTeamOrderResolver: (() => void) | null = null; // 用于等待用户队伍顺序的resolver
+
 	constructor(
 		playerStream: any,
 		opponentTeamData: any[] | null = null,
@@ -64,6 +71,74 @@ export class DeepSeekAIPlayer extends AIPlayer {
 		this.apiKey = process.env.DEEPSEEK_API_KEY || '';
 		this.translator = Translator.getInstance();
 		this.opponentTeamData = opponentTeamData;
+
+		// 从环境变量读取作弊概率配置
+		const cheatProb = parseFloat(process.env.DEEPSEEK_CHEAT_PROBABILITY || '0.8');
+		this.cheatProbability = isNaN(cheatProb) ? 0.8 : Math.max(0, Math.min(1, cheatProb));
+	}
+
+	/**
+	 * 设置用户的招式/切换选择（供外部调用）
+	 */
+	setPlayerChoice(choice: string): void {
+		this.playerChoice = choice;
+		// 如果有等待中的resolver，触发它
+		if (this.playerChoiceResolver) {
+			this.playerChoiceResolver();
+			this.playerChoiceResolver = null;
+		}
+	}
+
+	/**
+	 * 设置用户的队伍预览顺序（供外部调用）
+	 */
+	setPlayerTeamOrder(order: string): void {
+		this.playerTeamOrder = order;
+		// 如果有等待中的resolver，触发它
+		if (this.playerTeamOrderResolver) {
+			this.playerTeamOrderResolver();
+			this.playerTeamOrderResolver = null;
+		}
+	}
+
+	/**
+	 * 设置作弊概率（0-1之间，0表示不作弊，1表示必定作弊）
+	 */
+	setCheatProbability(probability: number): void {
+		this.cheatProbability = Math.max(0, Math.min(1, probability));
+	}
+
+	/**
+	 * 检查是否触发作弊（基于概率）
+	 */
+	private shouldCheat(): boolean {
+		return Math.random() < this.cheatProbability;
+	}
+
+	/**
+	 * 等待用户选择完成
+	 */
+	private waitForPlayerChoice(): Promise<void> {
+		return new Promise(resolve => {
+			if (this.playerChoice !== null) {
+				resolve();
+			} else {
+				this.playerChoiceResolver = resolve;
+			}
+		});
+	}
+
+	/**
+	 * 等待用户队伍顺序选择完成
+	 */
+	private waitForPlayerTeamOrder(): Promise<void> {
+		return new Promise(resolve => {
+			if (this.playerTeamOrder !== null) {
+				resolve();
+			} else {
+				this.playerTeamOrderResolver = resolve;
+			}
+		});
 	}
 
 	/**
@@ -423,6 +498,16 @@ export class DeepSeekAIPlayer extends AIPlayer {
 		const pokemon = request.side.pokemon;
 		const chosen: number[] = [];
 
+		// 如果作弊概率大于0，等待用户选择完成
+		let playerChoiceInfo: string | null = null;
+		if (this.cheatProbability > 0) {
+			await this.waitForPlayerChoice();
+			// 检查是否触发作弊
+			if (this.shouldCheat() && this.playerChoice !== null) {
+				playerChoiceInfo = this.playerChoice;
+			}
+		}
+
 		const choicePromises = request.active.map(async (active: AnyObject, i: number) => {
 			if (pokemon[i].condition.endsWith(` fnt`) || pokemon[i].commanding) return 'pass';
 
@@ -491,19 +576,22 @@ export class DeepSeekAIPlayer extends AIPlayer {
 			// 如果被困住或没有可切换的，只能使用招式
 			if (active.trapped || canSwitch.length === 0) {
 				if (moves.length > 0) {
-					return await this.chooseMoveWithAI(active, moves, [], pokemon[i], request, canTerastallize);
+					return await this.chooseMoveWithAI(active, moves, [], pokemon[i], request, canTerastallize, playerChoiceInfo);
 				} else {
 					return 'pass';
 				}
 			} else {
 				// 让AI决定是使用招式还是切换
 				const switchOptions = canSwitch.map(slot => ({ slot, pokemon: pokemon[slot - 1] }));
-				return await this.chooseMoveOrSwitchWithAI(active, moves, switchOptions, pokemon[i], request, canTerastallize);
+				return await this.chooseMoveOrSwitchWithAI(active, moves, switchOptions, pokemon[i], request, canTerastallize, playerChoiceInfo);
 			}
 		});
 
 		const choices = await Promise.all(choicePromises);
 		this.choose(choices.join(', '));
+
+		// 清除已使用的用户选择
+		this.playerChoice = null;
 	}
 
 	/**
@@ -582,9 +670,25 @@ ${this.getBaseSystemPrompt()}
 		if (!this.lastRequest) return null;
 		console.log('\n等待DeepSeek选择首发宝可梦...');
 
+		// 如果作弊概率大于0，等待用户队伍顺序选择完成
+		let playerTeamInfo: string | null = null;
+		if (this.cheatProbability > 0) {
+			await this.waitForPlayerTeamOrder();
+			// 检查是否触发作弊
+			if (this.shouldCheat() && this.playerTeamOrder !== null) {
+				playerTeamInfo = this.playerTeamOrder;
+			}
+		}
+
 		try {
 			const battleState = this.buildBattleState(request, true);
-			const prompt = `${battleState}\n\n请分析双方队伍，选择最优的首发宝可梦顺序。考虑属性克制、速度、特性和招式配合。请直接回答顺序，格式：team 123456（数字为宝可梦编号，首发在最前）`;
+
+			let extraInfo = '';
+			if (playerTeamInfo) {
+				extraInfo = `\n\n【重要情报】对手选择的首发顺序是: ${playerTeamInfo}\n请根据对手的首发选择做出最优反制！\n`;
+			}
+
+			const prompt = `${battleState}${extraInfo}\n\n请分析双方队伍，选择最优的首发宝可梦顺序。考虑属性克制、速度、特性和招式配合。请直接回答顺序，格式：team 123456（数字为宝可梦编号，首发在最前）`;
 
 			const systemPrompt = `你是一个宝可梦对战专家。根据双方队伍信息，选择胜率最高的出战顺序。
 
@@ -603,6 +707,8 @@ ${this.getBaseSystemPrompt()}
 			if (aiResponse) {
 				const parsed = this.parseAIResponse(aiResponse);
 				if (parsed && parsed.type === 'team' && parsed.team) {
+					// 清除已使用的用户队伍顺序
+					this.playerTeamOrder = null;
 					return `team ${parsed.team}`;
 				}
 			}
@@ -610,6 +716,8 @@ ${this.getBaseSystemPrompt()}
 			console.error('AI队伍预览失败:', error);
 		}
 
+		// 清除已使用的用户队伍顺序
+		this.playerTeamOrder = null;
 		return null;
 	}
 
@@ -622,7 +730,8 @@ ${this.getBaseSystemPrompt()}
 		switches: { slot: number, pokemon: AnyObject }[],
 		currentPokemon: AnyObject,
 		request: MoveRequest,
-		canTerastallize: boolean
+		canTerastallize: boolean,
+		playerChoiceInfo: string | null = null
 	): Promise<string> {
 		if (!this.lastRequest) {
 			console.error('❌ 无法获取请求信息');
@@ -678,6 +787,11 @@ ${this.getBaseSystemPrompt()}
 			} else if (this.myTerastallizedPokemon !== null) {
 				const terastallizedCN = this.translate(this.myTerastallizedPokemon, 'pokemon');
 				extraInfo += `\n注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;
+			}
+
+			// 如果有用户选择信息（作弊模式），加入提示
+			if (playerChoiceInfo) {
+				extraInfo += `\n【重要情报】对手选择了: ${playerChoiceInfo}\n请根据对手的选择做出最优反制！\n`;
 			}
 
 			const prompt = `${battleState}${extraInfo}\n\n${actions}\n\n请分析当前战况，选择最佳行动。只输出指令，不要解释。指令格式：move X（使用第X个招式）、move X terastallize（使用第X个招式并太晶化）、switch X（切换到第X个宝可梦）`;
@@ -738,9 +852,10 @@ ${this.getBaseSystemPrompt()}
 		switches: { slot: number, pokemon: AnyObject }[],
 		currentPokemon: AnyObject,
 		request: MoveRequest,
-		canTerastallize: boolean
+		canTerastallize: boolean,
+		playerChoiceInfo: string | null = null
 	): Promise<string> {
-		return await this.chooseMoveOrSwitchWithAI(active, moves, switches, currentPokemon, request, canTerastallize);
+		return await this.chooseMoveOrSwitchWithAI(active, moves, switches, currentPokemon, request, canTerastallize, playerChoiceInfo);
 	}
 
 	/**
