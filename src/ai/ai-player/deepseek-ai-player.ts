@@ -629,7 +629,7 @@ export class DeepSeekAIPlayer extends AIPlayer {
 				actions += '\n';
 			});
 
-			const prompt = `${battleState}\n\n${actions}\n\n你的宝可梦倒下了，请选择下一个出战的宝可梦。考虑属性克制、HP状况、特性和场上局势。只输出指令，不要解释。格式：switch X（X为宝可梦编号）`;
+			const prompt = `${battleState}\n\n${actions}\n\n你收到了切换宝可梦的请求，请选择下一个出战的宝可梦。考虑属性克制、HP状况、特性和场上局势。只输出指令，不要解释。格式：switch X（X为宝可梦编号）`;
 
 			const systemPrompt = `你是一个宝可梦对战专家。根据当前战况，选择胜率最高的宝可梦出战。
 
@@ -695,6 +695,7 @@ ${this.getBaseSystemPrompt()}
 ${this.getBaseSystemPrompt()}
 
 【考虑因素】
+0. 【**重要**】如果有用户操作的信息，请优先通过克制对方的出场顺序、使用针对对手首发的宝可梦或者抓住时机强化来反制对手的选择
 1. 首发宝可梦的队伍配合能力
 2. 速度优势（速度种族值+26）
 3. 属性克制和招式威力
@@ -801,6 +802,7 @@ ${this.getBaseSystemPrompt()}
 ${this.getBaseSystemPrompt()}
 
 【考虑因素】
+0. 【**重要**】如果有用户的操作信息，请优先通过太晶化反制、换人联攻联防、使用针对招式或者抓住时机强化来反制对手的选择
 1. 队友配合：考虑谁辅助谁输出
 2. 伤害计算：根据种族值、威力、属性克制精确计算伤害
 3. 速度判断：比较双方速度种族值，判断先后手
