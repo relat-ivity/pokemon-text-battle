@@ -91,15 +91,7 @@ function generateValidTeam(format) {
 		team = Sim.Teams.generate('gen9randombattle');
 	}
 
-	// 标准化队伍：50级，努力值85，个体值31，性格Hardy
-	const normalizedTeam = team.map(pokemon => ({
-		...pokemon,
-		level: 50,
-		nature: 'Hardy',
-		ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
-		evs: { hp: 85, atk: 85, def: 85, spa: 85, spd: 85, spe: 85 }
-	}));
-	return { team: normalizedTeam, fileName: null };
+	return { team: team, fileName: null };
 }
 
 /**
@@ -205,7 +197,7 @@ async function getPlayerChoice() {
  * 创建玩家选择处理器
  */
 function createPlayerChoiceHandler(battleState, streams, ai) {
-	return async function handlePlayerChoice() {
+	return async function handlePlayerChoice(isForceSwitch = false) {
 		if (battleState.isProcessingChoice || battleState.battleEnded) return;
 		battleState.startProcessingChoice();
 
@@ -217,12 +209,14 @@ function createPlayerChoiceHandler(battleState, streams, ai) {
 					// 显示当前队伍状态
 					const request = battleState.currentRequest || battleState.lastRequest;
 					displayBattleTeamStatus(battleState, request, translator);
-					// 递归调用，重新等待输入
+					// 递归调用，重新等待输入（保持 isForceSwitch 状态）
 					battleState.endProcessingChoice();
-					await handlePlayerChoice();
+					await handlePlayerChoice(isForceSwitch);
 				} else {
 					// 通知 AI 玩家的选择（用于作弊功能）
-					if (ai && typeof ai.setPlayerChoice === 'function') {
+					// 注意：只在正常回合（非强制切换）时通知 AI，因为强制切换是被动的
+					// 但是必须先通知 AI，否则 AI 可能在 waitForPlayerChoice() 处死锁
+					if (!isForceSwitch && ai && typeof ai.setPlayerChoice === 'function') {
 						ai.setPlayerChoice(choice);
 					}
 					// 直接写入选择，不需要 >p1 前缀
@@ -235,8 +229,8 @@ function createPlayerChoiceHandler(battleState, streams, ai) {
 		} catch (err) {
 			console.error('输入错误:', err);
 			battleState.endProcessingChoice();
-			// 出错后重新等待输入
-			await handlePlayerChoice();
+			// 出错后重新等待输入（保持 isForceSwitch 状态）
+			await handlePlayerChoice(isForceSwitch);
 		}
 	};
 }
@@ -268,11 +262,11 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 						if (battleState.currentRequest && !battleState.isProcessingChoice) {
 							if (battleState.currentRequest.forceSwitch) {
 								displaySwitchChoices(battleState.currentRequest, translator);
-									handlePlayerChoice();
+									handlePlayerChoice(true);  // 强制切换，传递 true
 								battleState.clearCurrentRequest();
 							} else if (battleState.currentRequest.active) {
 								displayChoices(battleState, battleState.currentRequest, translator, debug_mode);
-									handlePlayerChoice();
+									handlePlayerChoice(false);  // 正常回合，传递 false
 								battleState.saveLastRequest();
 								battleState.clearCurrentRequest();
 							}
@@ -309,7 +303,7 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 								process.nextTick(async () => {
 									if (battleState.currentRequest && battleState.currentRequest.forceSwitch && !battleState.isProcessingChoice) {
 										displaySwitchChoices(battleState.currentRequest, translator);
-										handlePlayerChoice();
+										handlePlayerChoice(true);  // 强制切换，传递 true
 										battleState.clearCurrentRequest();
 									}
 								});
@@ -331,8 +325,9 @@ async function startMessageLoop(battleState, streams, handlePlayerChoice, teamOr
 						// 如果有无效选择错误，只提示错误，不重新显示对战信息
 					if (errorMsg.includes('[Invalid choice]') && battleState.currentRequest) {
 							console.log('请重新输入有效的指令');
-							// 直接触发玩家选择处理
-							handlePlayerChoice();
+							// 直接触发玩家选择处理（传递正确的 forceSwitch 状态）
+							const isForceSwitch = battleState.currentRequest.forceSwitch || false;
+							handlePlayerChoice(isForceSwitch);
 						}
 					}
 				}
@@ -382,7 +377,7 @@ async function startPVEBattle() {
 	// 创建 AI 对手
 	// 获取 PokéChamp LLM 后端配置
 	const pokechampBackend = process.env.POKECHAMP_LLM_BACKEND || 'deepseek/deepseek-chat-v3.1:free';
-	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode, p1team, pokechampBackend);
+	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode,p2team, p1team, pokechampBackend);
 
 	// 获取实际的 AI 名字（如果降级会显示降级后的名字）
 	let actualOpponentName = opponent;

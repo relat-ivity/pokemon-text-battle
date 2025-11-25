@@ -21,6 +21,13 @@ function displayTeamInfo(team, trainerName, translator) {
 		// 获取宝可梦数据
 		const speciesData = Sim.Dex.species.get(pokemon.species);
 
+		// 显示等级
+		if (pokemon.level) {
+			logInfo += ` Lv.${pokemon.level}`;
+		} else {
+			logInfo += ` Lv.100`;
+		}
+
 		// 显示属性
 		if (speciesData.types) {
 			const typesCN = speciesData.types.map(t => translator.translate(t, 'types')).join('/');
@@ -154,6 +161,8 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 		// 显示等级
 		if (battleState.opponent.level) {
 			speciesLog += ` Lv.${battleState.opponent.level}`;
+		} else {
+			speciesLog += ` Lv.100`;
 		}
 
 		// 显示属性

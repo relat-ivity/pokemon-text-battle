@@ -2396,7 +2396,7 @@
     "Eviolite": "进化辉石",
     "Float Stone": "轻石",
     "Rocky Helmet": "凹凸头盔",
-    "Air Balloon": "飘浮石",
+    "Air Balloon": "气球",
     "Red Card": "红牌",
     "Ring Target": "标靶",
     "Binding Band": "紧绑束带",
@@ -2851,7 +2851,9 @@
     "Eggant Berry": "子茄果",
     "Heavy-Duty Boots": "厚底靴",
     "Pink Bow": "粉红蝴蝶结",
-    "Stick": "大葱"
+    "Stick": "大葱",
+    "Wellspring Mask": "水井面具",
+    "Booster Energy": "驱劲能量"
   },
   "abilities": {
     "Stench": "恶臭",

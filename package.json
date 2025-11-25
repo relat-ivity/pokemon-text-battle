@@ -28,6 +28,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@smogon/calc": "^0.10.0",
     "axios": "^1.6.0",
     "dotenv": "^16.6.1",
     "pokemon-showdown": "^0.11.10",

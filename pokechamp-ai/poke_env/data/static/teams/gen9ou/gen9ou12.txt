@@ -1,4 +1,4 @@
-Kurama Chakra Mode (Ninetales) @ Heat Rock  
+Ninetales @ Heat Rock  
 Ability: Drought  
 Tera Type: Ghost  
 EVs: 248 HP / 20 Def / 240 Spe  
@@ -9,7 +9,7 @@ IVs: 0 Atk
 - Healing Wish  
 - Will-O-Wisp  
 
-Slayboi Carti (Ceruledge) @ Focus Sash  
+Ceruledge @ Focus Sash  
 Ability: Weak Armor  
 Tera Type: Fairy  
 EVs: 252 Atk / 4 Def / 252 Spe  
@@ -19,7 +19,7 @@ Jolly Nature
 - Solar Blade  
 - Tera Blast  
 
-Venu Vidi Vici (Venusaur) @ Life Orb  
+Venusaur @ Life Orb  
 Ability: Chlorophyll  
 Tera Type: Fire  
 EVs: 4 Def / 252 SpA / 252 Spe  
@@ -30,7 +30,7 @@ IVs: 0 Atk
 - Sludge Bomb  
 - Weather Ball  
 
-Die w A Smile (Hatterene) (F) @ Eject Button  
+Hatterene (F) @ Eject Button  
 Ability: Magic Bounce  
 Tera Type: Steel  
 EVs: 252 HP / 176 Def / 72 SpD / 8 Spe  
@@ -40,7 +40,7 @@ Bold Nature
 - Dazzling Gleam  
 - Nuzzle  
 
-Lynrd Spynrd (Great Tusk) @ Rocky Helmet  
+Great Tusk @ Rocky Helmet  
 Ability: Protosynthesis  
 Tera Type: Fire  
 EVs: 252 HP / 4 Atk / 252 Spe  
@@ -50,7 +50,7 @@ Jolly Nature
 - Rapid Spin  
 - Stealth Rock  
 
-Dubya (Walking Wake) @ Choice Specs  
+Walking Wake @ Choice Specs  
 Ability: Protosynthesis  
 Tera Type: Water  
 EVs: 4 Def / 252 SpA / 252 Spe  

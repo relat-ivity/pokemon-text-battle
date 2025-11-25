@@ -64,6 +64,7 @@ export class AIPlayerFactory {
 		type: string,
 		playerStream: any,
 		debug: boolean = false,
+		teamData: any[] | null = null,
 		opponentTeamData: any[] | null = null
 	): AIPlayer {
 		const config = AI_CONFIG[type as keyof typeof AI_CONFIG];
@@ -93,7 +94,7 @@ export class AIPlayerFactory {
 					ai = new RandomAIPlayer(playerStream, {}, debug);
 					break;
 				case 'deepseek_ai':
-					ai = new DeepSeekAIPlayer(playerStream, opponentTeamData, debug);
+					ai = new DeepSeekAIPlayer(playerStream, teamData, opponentTeamData, debug);
 					break;
 				case 'master_ai':
 					ai = new MasterAIPlayer(playerStream, debug);

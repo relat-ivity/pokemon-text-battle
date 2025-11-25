@@ -1183,6 +1183,8 @@ class BattleMessageHandler {
 		} else if (effect.startsWith('ability: ')) {
 			const abilityName = effect.replace('ability: ', '');
 			effectCN = this.translate(abilityName, 'abilities');
+			console.log(`  → ${player} ${speciesCN}的${effectCN}发动了!`);
+			return;
 		} else if (effect === 'confusion') {
 			effectCN = '混乱';
 		} else if (effect === 'Substitute') {
