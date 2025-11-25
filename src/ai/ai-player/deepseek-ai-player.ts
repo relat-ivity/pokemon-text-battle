@@ -686,20 +686,12 @@ export class DeepSeekAIPlayer extends AIPlayer {
 
 			const prompt = `当前要切换宝可梦。指令格式：switch X（X为宝可梦编号）
 【考虑因素】
-0. 【**关键**】属性克制和招式威力 - **必须严格执行以下步骤**：
-   ① 先确认对手宝可梦的属性（从上方信息中查看，如"火/钢"表示火+钢双属性）
-   ② 对双属性宝可梦，必须分别查表计算对两个属性的倍率，然后相乘
-   ③ 例如：冰招式→火/钢 = (冰→火:0.5) × (冰→钢:0.5) = 0.25倍（四倍抵抗）
-   ④ 禁止臆测宝可梦的属性，只能使用上方明确列出的属性信息
+0. 【**关键**】属性克制和招式威力
 1. 注意对手有没有克制自己的招式，以及自己有没有克制对手的招式，和速度优势
 2. HP状况和异常状态
 3. 特性和道具配合
 4. 队伍配合和场上局势
-
-下面是当前双方状态：
 ${battleState}
-
-下面是可选操作
 ${actions}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
@@ -769,10 +761,7 @@ ${actions}`;
 2. 首发宝可梦的队伍配合能力
 3. 特性和道具配合
 4. 攻守平衡
-
-下面是当前双方宝可梦情报：
 ${battleState}
-
 ${extraInfo}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
@@ -812,7 +801,7 @@ ${extraInfo}`;
 
 		try {
 			const battleState = this.buildBattleState(this.lastRequest);
-			let actions = '【可选动作】\n\n';
+			let actions = '【可选动作】\n';
 
 			// 招式选项
 			if (moves.length > 0) {
@@ -835,7 +824,7 @@ ${extraInfo}`;
 
 			// 切换选项
 			if (switches.length > 0) {
-				actions += '\n切换宝可梦:\n';
+				actions += '切换宝可梦:\n';
 				switches.forEach((s) => {
 					const speciesName = s.pokemon.ident.split(': ')[1];
 					const speciesCN = this.translate(speciesName, 'pokemon');
@@ -853,14 +842,14 @@ ${extraInfo}`;
 				});
 			}
 
-			let extraInfo = '';
 			if (active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
-				extraInfo += '\n提示: 可以在使用招式时同时太晶化（例如：move 1 tera）\n';
+				actions += '提示: 可以在使用招式时同时太晶化（例如：move 1 tera）\n';
 			} else if (this.myTerastallizedPokemon !== null) {
 				const terastallizedCN = this.translate(this.myTerastallizedPokemon, 'pokemon');
-				extraInfo += `\n注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;
+				actions += `注意: 队伍已有宝可梦太晶化（${terastallizedCN}），无法再次太晶化\n`;
 			}
 
+			let extraInfo = '';
 			// 如果有用户选择信息（作弊模式），加入提示
 			if (playerChoiceInfo) {
 				const translatedChoice = this.translatePlayerChoice(playerChoiceInfo, request);
@@ -869,24 +858,13 @@ ${extraInfo}`;
 
 			const prompt = `当前要选择下一回合的操作。指令格式：move X（使用第X个招式）、move X terastallize（使用第X个招式并太晶化）、switch X（切换到第X个宝可梦）
 【考虑因素】
-0. 【**重要**】如果获得了对手的这回合的操作信息，请优先通过太晶化反制、换人联攻联防、使用针对招式或者抓住时机强化来反制对手的选择
-1. 注意伤害计算：根据上面的伤害公式计算伤害和承受伤害
-2. 【**关键**】属性克制和招式威力 - **必须严格执行以下步骤**：
-   ① 先确认对手宝可梦的属性（从上方信息中查看，如"火/钢"表示火+钢双属性）
-   ② 对双属性宝可梦，必须分别查表计算对两个属性的倍率，然后相乘
-   ③ 例如：冰招式→火/钢 = (冰→火:0.5) × (冰→钢:0.5) = 0.25倍（四倍抵抗）
-   ④ 禁止臆测宝可梦的属性，只能使用上方明确列出的属性信息
+1. 【**重要**】如果获得了对手的这回合的操作信息，请优先通过太晶化反制、换人联攻联防、使用针对招式或者抓住时机强化来反制对手的选择
+2. 【**关键**】根据伤害计算结果做出判断
 3. 注意根据双方速度个体值判断先后手，考虑会不会被对方先手击败
 4. 剩余宝可梦状态和HP
 5. 注意场地效果和天气影响
 6. 判断是否需要使用太晶化进攻或者防守
-7. 预判对手行为
-下面是当前双方状态：
-${battleState}
-
-下面是可选操作
-${actions}
-
+${battleState}${actions}
 ${extraInfo}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
@@ -945,7 +923,7 @@ ${extraInfo}`;
 	 * @param isTeamPreview 是否为队伍预览模式（true时只显示基础信息，不显示HP/状态等战斗细节）
 	 */
 	private buildBattleState(request: SwitchRequest | TeamPreviewRequest | MoveRequest, isTeamPreview: boolean = false): string {
-		let state = isTeamPreview ? '=== 队伍预览 ===\n\n' : '=== 当前战场状态 ===\n\n';
+		let state = isTeamPreview ? '=== 队伍预览 ===\n' : '=== 当前战场状态 ===\n';
 
 		if (!('side' in request) || !request.side || !request.side.pokemon) {
 			return state + '（无法获取战场信息）\n';
@@ -1069,12 +1047,8 @@ ${extraInfo}`;
 				}
 			}
 
-
-
-			state += '\n';
-
 			if (p.moves && p.moves.length > 0) {
-				state += `   招式: `;
+				state += ` 招式: `;
 				const moveNames = p.moves.slice(0, isTeamPreview ? 4 : undefined).map((moveName: string) => {
 					const moveData = Dex.moves.get(moveName);
 					const moveCN = this.translate(moveData.name, 'moves');
@@ -1088,7 +1062,7 @@ ${extraInfo}`;
 		});
 
 		// 对手队伍信息
-		state += '\n【对手队伍】\n';
+		state += '【对手队伍】\n';
 		if (this.opponentTeamData && this.opponentTeamData.length > 0) {
 			this.opponentTeamData.forEach((p: any, i: number) => {
 				const speciesName = p.species;
@@ -1167,10 +1141,8 @@ ${extraInfo}`;
 					}
 				}
 
-				state += '\n';
-
 				if (p.moves && p.moves.length > 0) {
-					state += `   招式: `;
+					state += ` 招式: `;
 					const moveNames = p.moves.slice(0, isTeamPreview ? 4 : undefined).map((moveName: string) => {
 						const moveData = Dex.moves.get(moveName);
 						const moveCN = this.translate(moveData.name, 'moves');
@@ -1195,20 +1167,20 @@ ${extraInfo}`;
 				const speciesName = currentPokemon.ident.split(': ')[1];
 				const speciesCN = this.translate(speciesName, 'pokemon');
 
-				state += `\n【当前出战】\n${speciesCN}\n`;
+				state += `【当前出战】${speciesCN} `;
 
 				// 显示太晶化状态
 				if (currentPokemon.teraType) {
 					const teraTypeCN = this.translate(currentPokemon.teraType, 'types');
 					if (this.myTerastallizedPokemon === speciesName) {
 						// 当前宝可梦已经太晶化
-						state += `\n已太晶化: ${teraTypeCN}\n`;
+						state += ` 已太晶化: ${teraTypeCN}\n`;
 					} else if (active.canTerastallize && this.myTerastallizedPokemon === null) {
 						// 只有在队伍里还没有宝可梦太晶化时，才能太晶化
-						state += `\n可太晶化: ${teraTypeCN}\n`;
+						state += ` 可太晶化: ${teraTypeCN}\n`;
 					} else if (this.myTerastallizedPokemon !== null && this.myTerastallizedPokemon !== speciesName) {
 						// 队伍里已经有其他宝可梦太晶化了
-						state += `\n队伍已使用太晶化`;
+						state += ` 队伍已使用太晶化\n`;
 					}
 				}
 			}
@@ -1231,7 +1203,7 @@ ${extraInfo}`;
 你需要根据计算公式和克制关系、现有的情报以及各种列出的考虑因素，选择胜率最高的行动方案。
 【输出格式】只输出一句指令${debugInfo}
 【重要】你有时候可以获得对手的操作，请你根据对手的操作信息做出压制。
-【伤害计算】我会在提示词中提供精确的伤害计算结果，伤害用满血的百分比表示（包括我方全队对对手的伤害、对手对我方的伤害）。**必须使用这些精确数据**做决策。
+【伤害计算】我会在提示词中提供精确的伤害计算结果，**伤害用满血的百分比表示**（包括我方全队对对手的伤害、对手对我方的伤害）。**必须使用这些精确数据**做决策。
 伤害计算已考虑所有修正值（STAB、属性克制、天气、能力变化等）。
 `;
 	}
@@ -1290,8 +1262,8 @@ ${extraInfo}`;
 				isLightScreen: false
 			};
 
-			let result = '\n=== 针对对手首发宝可梦的伤害计算 ===\n\n';
-			result += `【我方全队 → 对手首发${this.translate(opponentPokemonData.species, 'pokemon')}】\n\n`;
+			let result = '\n=== 针对对手首发宝可梦的伤害计算 ===\n';
+			result += `【我方全队 → 对手首发${this.translate(opponentPokemonData.species, 'pokemon')}】\n`;
 
 			// 遍历我方所有宝可梦
 			for (let i = 0; i < this.teamData.length; i++) {
@@ -1315,7 +1287,7 @@ ${extraInfo}`;
 				if (moves.length === 0) continue;
 
 				const pokemonCN = this.translate(myPokemonData.species, 'pokemon');
-				result += `${i + 1}. ${pokemonCN}\n`;
+				result += `${i + 1}. ${pokemonCN}`;
 
 				const calculations = DamageCalculator.calculateAllMoves(
 					attackerData,
@@ -1324,7 +1296,8 @@ ${extraInfo}`;
 					baseConditions
 				);
 
-				result += DamageCalculator.formatCalculationResults(calculations);
+				let calculationResults = DamageCalculator.formatCalculationResults(calculations);
+				result += calculationResults==='' ? '无伤害招式' : calculationResults;
 				result += '\n';
 			}
 
@@ -1332,7 +1305,7 @@ ${extraInfo}`;
 			const opponentMoves = opponentPokemonData.moves || [];
 			if (opponentMoves.length > 0) {
 				const opponentPokemonCN = this.translate(opponentPokemonData.species, 'pokemon');
-				result += `【对手首发${opponentPokemonCN} → 我方全队】\n\n`;
+				result += `【对手首发${opponentPokemonCN} → 我方全队】\n`;
 
 				for (let i = 0; i < this.teamData.length; i++) {
 					const myPokemonData = this.teamData[i];
@@ -1352,7 +1325,7 @@ ${extraInfo}`;
 					};
 
 					const pokemonCN = this.translate(myPokemonData.species, 'pokemon');
-					result += `${i + 1}. 对${pokemonCN}\n`;
+					result += `${i + 1}. 对${pokemonCN}`;
 
 					const opponentCalculations = DamageCalculator.calculateAllMoves(
 						opponentData,
@@ -1362,7 +1335,7 @@ ${extraInfo}`;
 					);
 
 					let calculationResults = DamageCalculator.formatCalculationResults(opponentCalculations);
-					result += calculationResults==='' ? '无伤害招式\n' : calculationResults;
+					result += calculationResults==='' ? '无伤害招式' : calculationResults;
 					result += '\n';
 				}
 			}
@@ -1514,7 +1487,7 @@ ${extraInfo}`;
 
 				const pokemonCN = this.translate(pokemonSpeciesName, 'pokemon');
 				const isActive = pokemon.active ? ' [当前出战]' : '';
-				result += `${i + 1}. ${pokemonCN}${isActive}\n`;
+				result += `${i + 1}. ${pokemonCN}${isActive}`;
 
 				const calculations = DamageCalculator.calculateAllMoves(
 					attackerData,
@@ -1527,7 +1500,9 @@ ${extraInfo}`;
 					}
 				);
 
-				result += DamageCalculator.formatCalculationResults(calculations);
+				let calculationResults = DamageCalculator.formatCalculationResults(calculations);
+				result += calculationResults==='' ? '无伤害招式' : calculationResults;
+				result += '\n';
 			}
 
 			// 2. 计算对手宝可梦对我方所有存活宝可梦的伤害
@@ -1567,7 +1542,7 @@ ${extraInfo}`;
 
 					const pokemonCN = this.translate(pokemonSpeciesName, 'pokemon');
 					const isActive = pokemon.active ? ' [当前出战]' : '';
-					result += `${i + 1}. 对${pokemonCN}${isActive}\n`;
+					result += `${i + 1}. 对${pokemonCN}${isActive}`;
 
 					const opponentCalculations = DamageCalculator.calculateAllMoves(
 						opponentData,
@@ -1579,7 +1554,9 @@ ${extraInfo}`;
 							isLightScreen: this.mySideConditions.has('Light Screen')
 						}
 					);
-					result += DamageCalculator.formatCalculationResults(opponentCalculations);
+					let calculationResults = DamageCalculator.formatCalculationResults(opponentCalculations);
+					result += calculationResults==='' ? '无伤害招式' : calculationResults;
+					result += '\n';
 				}
 			}
 

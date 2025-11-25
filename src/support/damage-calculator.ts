@@ -299,10 +299,9 @@ export class DamageCalculator {
 		let output = '';
 		calculations.forEach((calc, index) => {
 			if (calc.result.description !== '变化招式') {
-				output += `   ${calc.result.description}\n`;
+				output += ` ${calc.result.description}`;
 			}
 		});
-
 		return output;
 	}
 }
