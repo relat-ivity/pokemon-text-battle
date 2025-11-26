@@ -37,13 +37,19 @@ function displayTeamInfo(team, trainerName, translator) {
 		// 太晶属性
 		if (pokemon.teraType) {
 			const teraTypeCN = translator.translate(pokemon.teraType, 'types');
-			logInfo += ` 太晶属性: ${teraTypeCN}`;
+			logInfo += ` 太晶属性:${teraTypeCN}`;
 		}
 
 		// 性格
 		if (pokemon.nature) {
+			const natureData = Sim.Dex.natures.get(pokemon.nature);
 			const natureCN = translator.translate(pokemon.nature, 'natures');
-			logInfo += ` 性格: ${natureCN}`;
+			logInfo += ` 性格:${natureCN}`;
+			if (natureData.plus && natureData.minus) {
+				const plusCN = translator.translate(natureData.plus, 'boosts');
+				const minusCN = translator.translate(natureData.minus, 'boosts');
+				logInfo += `(${plusCN}+ ${minusCN}-)`;
+			}
 		}
 		console.log(logInfo);
 
@@ -60,21 +66,25 @@ function displayTeamInfo(team, trainerName, translator) {
 
 		// 携带物品
 		if (pokemon.item) {
+			const itemData = Sim.Dex.items.get(pokemon.item);
 			const itemCN = translator.translate(pokemon.item, 'items');
-			console.log(`    携带物品: ${itemCN}`);
+			let itemInfo = `    携带物品: ${itemCN}`;
+			if (itemData.desc || itemData.shortDesc) {
+				itemInfo += ` 描述: ${itemData.shortDesc || itemData.desc}`;
+			}
+			console.log(itemInfo);
 		}
 
-		// 种族值
-		if (speciesData.baseStats) {
-			const baseStats = [];
-			baseStats.push(`HP:${speciesData.baseStats.hp}`);
-			baseStats.push(`攻击:${speciesData.baseStats.atk}`);
-			baseStats.push(`防御:${speciesData.baseStats.def}`);
-			baseStats.push(`特攻:${speciesData.baseStats.spa}`);
-			baseStats.push(`特防:${speciesData.baseStats.spd}`);
-			baseStats.push(`速度:${speciesData.baseStats.spe}`);
-			console.log(`    种族值: ${baseStats.join(' ')}`);
-		}
+		// 实际能力值
+		const actualStats = calculateStats(pokemon, speciesData);
+		const actualStatsArr = [];
+		actualStatsArr.push(`HP:${actualStats.hp}`);
+		actualStatsArr.push(`攻击:${actualStats.atk}`);
+		actualStatsArr.push(`防御:${actualStats.def}`);
+		actualStatsArr.push(`特攻:${actualStats.spa}`);
+		actualStatsArr.push(`特防:${actualStats.spd}`);
+		actualStatsArr.push(`速度:${actualStats.spe}`);
+		console.log(`    实际能力值: ${actualStatsArr.join(' ')}`);
 
 		// 招式
 		if (pokemon.moves && pokemon.moves.length > 0) {
@@ -211,8 +221,11 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 	let speciesLog = `当前出战: ${nameCN}`;
 
 	// 显示等级
-	if (battleState.player.level) {
-		speciesLog += ` Lv.${battleState.player.level}`;
+	level = currentPokemon.details.split(',')[1].trim().substring(1);
+	if (level) {
+		speciesLog += ` Lv.${level}`;
+	} else {
+		speciesLog += ` Lv.100`;
 	}
 
 	// 显示属性
@@ -220,13 +233,21 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 		const typesCN = speciesData.types.map(t => translator.translate(t, 'types')).join('/');
 		speciesLog += ` 属性:${typesCN}`;
 	}
-	speciesLog += ` HP:${currentPokemon.condition}`;
+
+	// 显示太晶化信息
+	if (active.canTerastallize) {
+		const teraTypeCN = currentPokemon.teraType ? translator.translate(currentPokemon.teraType, 'types') : '未知';
+		speciesLog += ` 可太晶化:${teraTypeCN}`;
+	}
+
 
 	// 显示太晶化状态
 	if (battleState.player.isTerastallized(species)) {
 		const teraTypeCN = translator.translate(battleState.player.teraType, 'types');
 		speciesLog += ` [已太晶化:${teraTypeCN}]`;
 	}
+	
+	speciesLog += ` HP:${currentPokemon.condition}`;
 
 	console.log(speciesLog);
 
@@ -235,7 +256,11 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 		const itemData = Sim.Dex.items.get(currentPokemon.item);
 		const itemName = itemData.name || currentPokemon.item;
 		const itemCN = translator.translate(itemName, 'items');
-		console.log(`   携带物品: ${itemCN}`);
+		let itemInfo = `   携带物品: ${itemCN}`;
+		if (itemData.desc || itemData.shortDesc) {
+			itemInfo += ` 描述: ${itemData.shortDesc || itemData.desc}`;
+		}
+		console.log(itemInfo);
 	}
 
 	// 显示特性
@@ -266,12 +291,6 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 			return `${statCN}${sign}${boost}`;
 		}).join(' ');
 		console.log(`   能力变化: ${boostsStr}`);
-	}
-
-	// 显示太晶化信息
-	if (active.canTerastallize) {
-		const teraTypeCN = currentPokemon.teraType ? translator.translate(currentPokemon.teraType, 'types') : '未知';
-		console.log(`   太晶属性: ${teraTypeCN}（可以太晶化！）`);
 	}
 
 	// 显示可用招式
@@ -335,7 +354,7 @@ function displaySwitchChoices(request, translator) {
 		}
 	});
 
-	console.log('输入格式: switch 2');
+	console.log('输入格式: s2');
 }
 
 /**
@@ -417,118 +436,45 @@ function displayBattleTeamStatus(battleState, request, translator) {
 }
 
 /**
- * 显示从 request 中获取的完整队伍信息（对战开始时）
+ * 计算宝可梦的实际能力值
+ * 公式：HP = floor((2 * Base + IV + floor(EV / 4)) * Level / 100) + Level + 10
+ *       其他 = floor((floor((2 * Base + IV + floor(EV / 4)) * Level / 100) + 5) * Nature)
  */
-function displayTeamFromRequest(request, translator) {
-	if (!request || !request.side || !request.side.pokemon) {
-		console.log('❌ 无法获取队伍信息');
-		return;
-	}
+function calculateStats(pokemon, speciesData) {
+	const stats = {};
+	const level = pokemon.level || 100;
+	const ivs = pokemon.ivs || { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
+	const evs = pokemon.evs || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 
-	console.log('='.repeat(60));
-	console.log('📋 你的队伍信息');
-	console.log('='.repeat(60));
+	// 性格修正
+	const natureData = Sim.Dex.natures.get(pokemon.nature || 'Hardy');
+	const natureMods = {
+		hp: 1.0,
+		atk: natureData.plus === 'atk' ? 1.1 : (natureData.minus === 'atk' ? 0.9 : 1.0),
+		def: natureData.plus === 'def' ? 1.1 : (natureData.minus === 'def' ? 0.9 : 1.0),
+		spa: natureData.plus === 'spa' ? 1.1 : (natureData.minus === 'spa' ? 0.9 : 1.0),
+		spd: natureData.plus === 'spd' ? 1.1 : (natureData.minus === 'spd' ? 0.9 : 1.0),
+		spe: natureData.plus === 'spe' ? 1.1 : (natureData.minus === 'spe' ? 0.9 : 1.0)
+	};
 
-	const pokemon = request.side.pokemon;
+	// 计算 HP
+	const hpBase = speciesData.baseStats.hp;
+	stats.hp = Math.floor((2 * hpBase + ivs.hp + Math.floor(evs.hp / 4)) * level / 100) + level + 10;
 
-	pokemon.forEach((poke, index) => {
-		const species = poke.ident.split(': ')[1];
-		const name = poke.details ? poke.details.split(',')[0] : species;
-		const speciesData = Sim.Dex.species.get(name);
-		const nameCN = translator.translate(name, 'pokemon');
-		const isActive = poke.active ? ' [出战中]' : '';
-
-		// 提取等级信息
-		let level = '';
-		if (poke.details) {
-			const levelMatch = poke.details.match(/L(\d+)/);
-			if (levelMatch) {
-				level = ` Lv.${levelMatch[1]}`;
-			}
-		}
-
-		pokelog = `[${index + 1}] ${nameCN}${level}${isActive}`;
-		pokelog += ` HP:${poke.condition}`;
-
-		// 显示属性
-		if (speciesData.types) {
-			const typesCN = speciesData.types.map(t => translator.translate(t, 'types')).join('/');
-			pokelog += ` 属性:${typesCN}`;
-		}
-
-		// 显示太晶属性
-		if (poke.teraType) {
-			const teraTypeCN = translator.translate(poke.teraType, 'types');
-			pokelog += ` 太晶属性:${teraTypeCN}`;
-		}
-		console.log(pokelog);
-
-		// 显示携带物品
-		if (poke.item) {
-			const itemData = Sim.Dex.items.get(poke.item);
-			const itemName = itemData.name || poke.item;
-			const itemCN = translator.translate(itemName, 'items');
-			console.log(`    携带物品:${itemCN}`);
-		}
-
-		// 显示特性
-		if (poke.ability || poke.baseAbility) {
-			const ability = poke.ability || poke.baseAbility;
-			const abilityData = Sim.Dex.abilities.get(ability);
-			const abilityName = abilityData.name || ability;
-			const abilityCN = translator.translate(abilityName, 'abilities');
-			abilityInfo = `    特性:${abilityCN}`;
-			if (abilityData.shortDesc || abilityData.desc) {
-			abilityInfo += ` 描述${abilityData.shortDesc || abilityData.desc}`;
-			}
-			console.log(abilityInfo);
-		}
-
-		// 显示招式
-		if (poke.moves && poke.moves.length > 0) {
-			console.log(`    招式:`);
-			poke.moves.forEach((moveId, i) => {
-				const moveData = Sim.Dex.moves.get(moveId);
-				const moveName = moveData.name || moveId;
-				const moveCN = translator.translate(moveName, 'moves');
-				let moveInfo = `       ${i + 1}. ${moveCN}`;
-
-				// 添加属性
-				if (moveData.type) {
-					const typeCN = translator.translate(moveData.type, 'types');
-					const categoryCN = translator.translate(moveData.category, 'category');
-					moveInfo += `[${typeCN}/${categoryCN}]`;
-				}
-
-				// 添加威力
-				if (moveData.basePower) {
-					moveInfo += ` 威力:${moveData.basePower}`;
-				}
-
-				// 添加命中率
-				if (moveData.accuracy === true) {
-					moveInfo += ` 命中:--`;
-				} else if (moveData.accuracy) {
-					moveInfo += ` 命中:${moveData.accuracy}%`;
-				}
-
-				// 添加技能描述
-				if (moveData.shortDesc || moveData.desc) {
-					moveInfo += ` 描述:${moveData.shortDesc || moveData.desc}`;
-				}
-
-				console.log(moveInfo);
-			});
-		}
+	// 计算其他能力值
+	const statNames = ['atk', 'def', 'spa', 'spd', 'spe'];
+	statNames.forEach(stat => {
+		const base = speciesData.baseStats[stat];
+		const baseStat = Math.floor((2 * base + ivs[stat] + Math.floor(evs[stat] / 4)) * level / 100) + 5;
+		stats[stat] = Math.floor(baseStat * natureMods[stat]);
 	});
 
-	console.log('='.repeat(60));
+	return stats;
 }
 
 module.exports = {
 	displayTeamInfo,
 	displayChoices,
 	displaySwitchChoices,
-	displayBattleTeamStatus,
-	displayTeamFromRequest
+	displayBattleTeamStatus
 };

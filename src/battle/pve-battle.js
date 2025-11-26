@@ -136,7 +136,7 @@ async function selectLeadPokemon(team) {
 	let teamOrder = null;
 
 	while (!teamOrder) {
-		const choice = await prompt('\n请选择你的队伍首发(1-6的数字): ');
+		const choice = await prompt('\n请选择你的队伍首发(选择一个1-6的数字): ');
 		if (choice) {
 			const digit = parseInt(choice);
 			const hasInvalidDigit = digit < 1 || digit > teamSize || isNaN(digit);
@@ -357,10 +357,10 @@ async function startPVEBattle() {
 
 	// 显示操作说明
 	console.log('输入格式:');
-	console.log('    使用招式: move 1');
-	console.log('    切换宝可梦: switch 2');
-	console.log('    太晶化攻击: move 1 tera  (使用第1个招式并太晶化)');
-	console.log('    查看队伍: team  (查看所有宝可梦状态)');
+	console.log('    使用招式: move 1 或 m1');
+	console.log('    切换宝可梦: switch 2 或 s2');
+	console.log('    太晶化攻击: move 1 tera 或 m1 t');
+	console.log('    查看队伍: team (查看宝可梦状态)');
 
 	// 选择对手
 	const {
