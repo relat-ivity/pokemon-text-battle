@@ -866,7 +866,7 @@ class BattleMessageHandler {
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 		const statCN = this.translate(stat, 'boosts');
 
-		console.log(`  → ${player} ${pokemonCN} 的${statCN}上升了 ${amount} 级!`);
+		console.log(`  → ${player} ${pokemonCN} 的 ${statCN} 上升了 ${amount} 级!`);
 
 		if (isPlayer) {
 			this.state.player.boost(stat, amount);
@@ -889,7 +889,7 @@ class BattleMessageHandler {
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 		const statCN = this.translate(stat, 'boosts');
 
-		console.log(`  → ${player} ${pokemonCN} 的${statCN}下降了 ${amount} 级!`);
+		console.log(`  → ${player} ${pokemonCN} 的 ${statCN} 下降了 ${amount} 级!`);
 
 		if (isPlayer) {
 			this.state.player.unboost(stat, amount);
@@ -1183,7 +1183,7 @@ class BattleMessageHandler {
 		} else if (effect.startsWith('ability: ')) {
 			const abilityName = effect.replace('ability: ', '');
 			effectCN = this.translate(abilityName, 'abilities');
-			console.log(`  → ${player} ${speciesCN}的${effectCN}发动了!`);
+			console.log(`  → ${player} ${speciesCN}的 ${effectCN} 发动了!`);
 			return;
 		} else if (effect === 'confusion') {
 			effectCN = '混乱';
@@ -1201,9 +1201,23 @@ class BattleMessageHandler {
 			effectCN = '挑衅';
 		} else if (effect === 'Torment') {
 			effectCN = '无理取闹';
+		} else if (effect.startsWith('quarkdrive') || effect.startsWith('protosynthesis')) {
+			// 夸克充能(Quark Drive)和古代活性(Protosynthesis)
+			const statMap = {
+				'atk': '攻击',
+				'def': '防御',
+				'spa': '特攻',
+				'spd': '特防',
+				'spe': '速度'
+			};
+			// 提取能力值（最后3个字符）
+			const stat = effect.slice(-3);
+			const statCN = statMap[stat] || stat;
+			console.log(`  → ${player} ${speciesCN} 的 ${statCN} 提升了!`);
+			return;
 		}
 
-		console.log(`  → ${player} ${speciesCN} 陷入了${effectCN}状态!`);
+		console.log(`  → ${player} ${speciesCN} 陷入了 ${effectCN} 状态!`);
 	}
 
 	/**
@@ -1233,9 +1247,13 @@ class BattleMessageHandler {
 			effectCN = '再来一次';
 		} else if (effect === 'Taunt') {
 			effectCN = '挑衅';
+		} else if (effect === 'Quark Drive') {
+			effectCN = '夸克充能';
+		} else if (effect === 'Protosynthesis') {
+			effectCN = '古代活性';
 		}
 
-		console.log(`  → ${player} ${speciesCN} 的${effectCN}状态结束了!`);
+		console.log(`\n${player} ${speciesCN} 的 ${effectCN} 状态结束了!`);
 	}
 
 	// ==================== 道具/特性 ====================
@@ -1284,9 +1302,9 @@ class BattleMessageHandler {
 
 		// 检查是否是吃掉树果
 		if (line.includes('[eat]')) {
-			console.log(`  → ${player} ${speciesCN} 吃掉了${itemCN}!`);
+			console.log(`\n${player} ${speciesCN} 吃掉了 ${itemCN} !`);
 		} else {
-			console.log(`  → ${player} ${speciesCN} 的${itemCN}消失了!`);
+			console.log(`\n${player} ${speciesCN} 的 ${itemCN} 消失了!`);
 		}
 	}
 
@@ -1314,7 +1332,7 @@ class BattleMessageHandler {
 				const fromAbility = from.replace('[from] ability: ', '');
 				fromCN = this.translate(fromAbility, 'abilities');
 			}
-			console.log(`  → ${player} ${speciesCN} 的特性变为${abilityCN}! (${fromCN})`);
+			console.log(`  → ${player} ${speciesCN} 的特性变为 ${abilityCN} ! (${fromCN})`);
 		} else {
 			console.log(`  → ${player} ${speciesCN} 的特性 ${abilityCN} 发动了!`);
 		}
@@ -1368,7 +1386,7 @@ class BattleMessageHandler {
 		const speciesCN = this.translate(species, 'pokemon');
 		const megaStoneCN = this.translate(megaStone, 'items');
 
-		console.log(`\n${player} ${speciesCN} 使用${megaStoneCN}进行了超级进化!`);
+		console.log(`\n${player} ${speciesCN} 使用 ${megaStoneCN} 进行了超级进化!`);
 	}
 
 	/**
@@ -1402,7 +1420,7 @@ class BattleMessageHandler {
 		const newSpeciesCN = this.translate(newSpecies, 'pokemon');
 		const itemCN = this.translate(item, 'items');
 
-		console.log(`\n${player} ${speciesCN} 使用${itemCN}进行了究极爆发变成了 ${newSpeciesCN}!`);
+		console.log(`\n${player} ${speciesCN} 使用 ${itemCN} 进行了究极爆发变成了 ${newSpeciesCN}!`);
 	}
 
 	/**
@@ -1446,17 +1464,8 @@ class BattleMessageHandler {
 
 		// 尝试解析效果
 		let effectCN = effect;
-		if (effect && effect.includes(': ')) {
-			const [prefix, name] = effect.split(': ');
-			if (prefix.includes('ability')) {
-				effectCN = this.translate(name, 'abilities');
-			} else if (prefix.includes('move')) {
-				effectCN = this.translate(name, 'moves');
-			} else if (prefix.includes('item')) {
-				effectCN = this.translate(name, 'items');
-			}
-			console.log(`  → ${effectCN}发动了!`);
-		} else if (effect && effect.startsWith('p')) {
+		// 首先检查是否是宝可梦标签（p1a: Name 或 p2a: Name）
+		if (effect && effect.startsWith('p')) {
 			// 是宝可梦标签
 			const playerTag = effect;
 			const effectName = parts[3] || '';
@@ -1475,8 +1484,19 @@ class BattleMessageHandler {
 			}
 
 			if (effectText) {
-				console.log(`  → ${player} ${speciesCN} 的${effectText}发动了!`);
+				console.log(`  → ${player} ${speciesCN} 的 ${effectText} 发动了!`);
 			}
+		} else if (effect && effect.includes(': ')) {
+			// 不是宝可梦标签，但包含 ': ' 的其他效果
+			const [prefix, name] = effect.split(': ');
+			if (prefix.includes('ability')) {
+				effectCN = this.translate(name, 'abilities');
+			} else if (prefix.includes('move')) {
+				effectCN = this.translate(name, 'moves');
+			} else if (prefix.includes('item')) {
+				effectCN = this.translate(name, 'items');
+			}
+			console.log(`  → ${effectCN} 发动了!`);
 		}
 	}
 
