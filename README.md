@@ -12,7 +12,6 @@ Version：0.6.0-snapshot
 
 - 🎮 **完整的第九代对战系统**：支持太晶化、50级对战、随机队伍生成，支持 gen9randombattle 和 gen9ou 格式
 - 🤖 **多种AI对手**：
-  - **PokéChamp AI** - ICML 2025 获奖的 Minimax + LLM 混合AI，支持 10+ 种 LLM 后端
   - **DeepSeek AI** - 高性能、低成本的 LLM AI，支持作弊模式
   - **本地大师AI** - 强大的本地策略AI
   - **本地智能AI** - 基于属性克制的智能决策
@@ -24,14 +23,13 @@ Version：0.6.0-snapshot
 ## 💻 规则
 
 - 支持 gen9randombattle 和 gen9ou 规则
-- 本地随机对战规则：所有宝可梦等级50级，性格：勤奋，个体值(IV)每项31，努力值(EV)每项85，添加**选择首发**环节
 
 ## 📦 安装
 
 ### 前置要求
 - Node.js >= 18.0.0
 
-### 安装步骤
+### 快速开始
 
 ```bash
 # 克隆仓库
@@ -41,46 +39,15 @@ cd pokemon-text-battle
 # 安装依赖
 npm install
 
-# 编译 TypeScript
-npm run build
-```
+# 设置环境变量文件
+copy .env.example .env
 
-## 🚀 快速开始
-
-### 🎯 选择对战模式
-
-本项目支持**两种对战模式**：
-
-#### 模式 1：本地对战模式
-
-不建立服务器，使用Showdown SDK开发
-
-✅ 支持 4 种 AI：DeepSeek AI、本地大师AI、本地智能 AI、随机 AI
-
-```bash
-npm run battle
+# 运行
+npm start
 # 或
 node src/battle/pve-battle.js
+
 ```
-
-#### 模式 2：服务器对战模式
-
-建立本地Showdown服务器，在服务器上创建对战房间
-
-✅ 目前支持和PokeChamp AI对战。
-
-```bash
-npm run serverbattle
-```
-
-如果启动失败，手动启动三个脚本：
-
-```bash
-npm run server
-python src/ai/ai-player/pokechamp-ai-player.py
-node src/battle/pve-server-battle.js
-```
-
 ---
 
 ## 📖 使用说明
@@ -90,58 +57,49 @@ node src/battle/pve-server-battle.js
 在对战中，你可以使用以下指令：
 
 ```bash
-move 2          # 使用第2个招式，可简化为m2
-switch 2        # 切换到第2只宝可梦，建议先用team查看宝可梦编号(对战中可能会改变)，可简化为s2
+move 2          # 使用第2个招式，可简化为 m2
+switch 2        # 切换到第2只宝可梦，先用team查看宝可梦编号再换人，可简化为 s2
 move 1 tera     # 使用第1个招式并太晶化，可简化为m1 t
 team            # 查看所有宝可梦状态
 ```
 
 ### AI 对手
 
-项目支持 5 种 AI 对手，难度逐级递增：
+项目支持 4 种 AI 对手，难度逐级递增：
 
-#### 1. PokéChamp AI 🏆 **仅服务器模式**
-
-ICML 2025 获奖的强大 AI，采用 Minimax 树搜索 + LLM 混合策略
-- **性能**: 84% 胜率（vs 规则类AI）
-- **支持后端**: 10+ 种 LLM（GPT-4o、Gemini、DeepSeek、本地模型等）
-- **⚠️ 注意**: 仅在服务器对战模式中可用
-
-详细配置请查看 [PokéChamp AI文档](./docs/POKECHAMP_AI_GUIDE.md)
-
-#### 2. DeepSeek AI 🧠 **本地模式**
+#### 1. DeepSeek AI 🧠
 使用 DeepSeek LLM 进行智能决策，支持作弊模式（获取对手操作信息）
 
 ```bash
 # 设置 API 密钥，或者在.env文件中添加
 export DEEPSEEK_API_KEY="你的API密钥"
-npm run battle
+npm start
 # 选择菜单中选择 "1. DeepSeek AI"
 ```
 
 详细配置请查看 [DeepSeek AI 文档](./docs/DEEPSEEK_AI_GUIDE.md)
 
-#### 3. 本地大师AI 🥇 **本地模式**
+#### 2. 本地大师AI 🥇
 高级本地策略AI，无需API密钥
 
 ```bash
-npm run battle
+npm start
 # 选择菜单中选择 "2. 本地大师AI"
 ```
 
-#### 4. 本地智能AI 🥈 **本地模式**
+#### 3. 本地智能AI 🥈
 基于属性克制和招式评分的本地智能AI
 
 ```bash
-npm run battle
+npm start
 # 选择菜单中选择 "3. 本地智能AI"
 ```
 
-#### 5. 随机AI 🎲 (测试用) **本地模式**
+#### 4. 随机AI 🎲 (测试用)
 随机使用技能和换人，用于测试和学习
 
 ```bash
-npm run battle
+npm start
 # 选择菜单中选择 "4. 随机AI"
 ```
 
@@ -334,7 +292,6 @@ Player 的队伍
 
 ## 📚 文档
 
-- [PokéChamp AI配置指南](./docs/POKECHAMP_AI_GUIDE.md)
 - [DeepSeek AI配置指南](./docs/DEEPSEEK_AI_GUIDE.md)
 - [Claude.md](./CLAUDE.md) - Claude项目架构和开发指南
 

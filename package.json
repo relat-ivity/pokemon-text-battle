@@ -1,11 +1,9 @@
 {
-  "name": "pokemon-console-battle",
+  "name": "pokemon-text-battle",
   "version": "0.6.0",
   "description": "可以在命令行和AI进行第九代随机六六单打",
   "scripts": {
-    "battle": "npm run build && node src/battle/pve-battle.js",
-    "serverbattle": "npm run build && node scripts/start-server-battle.js",
-    "server": "node scripts/start-server.js",
+    "start": "npm run build && node src/battle/pve-battle.js",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "postinstall": "npm run build"
@@ -22,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/pokemon-console-battle"
+    "url": "https://github.com/relat-ivity/pokemon-text-battle"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -33,45 +33,23 @@
 
 ### 代码规范
 
-- 使用 Tab 缩进
-- 添加必要的注释
-- 保持代码简洁易读
-- 确保你的代码在提交前能正常运行
-
-### 提交信息规范
-
-使用清晰的提交信息：
-
-- `feat:` 新功能
-- `fix:` 修复 bug
-- `docs:` 文档更新
-- `style:` 代码格式调整
-- `refactor:` 代码重构
-- `test:` 测试相关
-- `chore:` 构建或辅助工具的变动
-
-示例：
-```
-feat: 添加新的AI决策算法
-fix: 修复太晶化状态显示错误
-docs: 更新安装说明
-```
+- 使用vscode插件Formatter Hero格式化
 
 ## 开发环境设置
 
 ```bash
 # 克隆你的 fork
-git clone https://github.com/your-username/pokemon-console-battle.git
-cd pokemon-console-battle
+git clone https://github.com/relat-ivity/pokemon-text-battle.git
+cd pokemon-text-battle
 
 # 安装依赖
 npm install
 
-# 运行测试
-npm test
+# 设置环境变量文件
+copy .env.example .env
 
-# 启动开发
-npm run battle
+# 启动
+npm start
 ```
 
 ## 需要帮助？

@@ -37,7 +37,7 @@ npm install
 
 3. 保存文件，直接运行即可：
    ```bash
-   npm run battle
+   npm start
    ```
 
 #### 方法二：临时设置环境变量（当前会话有效）
@@ -45,19 +45,19 @@ npm install
 **Windows (PowerShell):**
 ```powershell
 $env:DEEPSEEK_API_KEY="你的API密钥"
-npm run battle
+npm start
 ```
 
 **Windows (CMD):**
 ```cmd
 set DEEPSEEK_API_KEY=你的API密钥
-npm run battle
+npm start
 ```
 
 **Linux / macOS:**
 ```bash
 export DEEPSEEK_API_KEY="你的API密钥"
-npm run battle
+npm start
 ```
 
 ## 使用方法

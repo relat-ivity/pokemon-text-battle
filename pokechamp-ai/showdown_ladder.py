@@ -1,1 +1,0 @@
-scripts/battles/showdown_ladder.py

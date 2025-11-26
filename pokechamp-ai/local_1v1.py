@@ -1,1 +1,0 @@
-scripts/battles/local_1v1.py
