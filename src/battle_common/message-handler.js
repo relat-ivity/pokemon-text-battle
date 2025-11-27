@@ -601,7 +601,11 @@ class BattleMessageHandler {
 		}
 
 		if (actionText) {
-			console.log(`  → ${player} ${speciesCN} 的${actionText}失败了!`);
+			if (actionText === "unboost") {
+				console.log(`  → ${player} ${speciesCN} 的能力没有下降!`);
+			} else {
+				console.log(`  → ${player} ${speciesCN} 的${actionText}效果失败了!`);
+			}
 		} else {
 			console.log(`  → ${player} ${speciesCN} 的攻击失败了!`);
 		}

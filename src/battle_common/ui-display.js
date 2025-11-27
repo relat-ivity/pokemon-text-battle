@@ -221,8 +221,11 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 	let speciesLog = `当前出战: ${nameCN}`;
 
 	// 显示等级
-	level = currentPokemon.details.split(',')[1].trim().substring(1);
-	if (level) {
+	const detailsParts = currentPokemon.details.split(',');
+	// 查找匹配 "L" 后跟数字的部分（等级信息），使用正则表达式
+	const levelPart = detailsParts.find(part => /^\s*L\d+/.test(part));
+	if (levelPart) {
+		level = levelPart.trim().substring(1); // "L50" -> "50"
 		speciesLog += ` Lv.${level}`;
 	} else {
 		speciesLog += ` Lv.100`;
