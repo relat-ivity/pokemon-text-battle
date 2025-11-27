@@ -211,7 +211,7 @@ Player 的队伍
        3.冷冻干燥 [冰] 威力:70 命中:100% 描述:10% chance to freeze. Super effective on Water.
        4.大地之力 [地面] 威力:90 命中:100% 描述:10% chance to lower the target's Sp. Def by 1.
 
-[6] 呆呆王(Slowking-Galar) Lv.100 属性:毒/超能 太晶属性: 水 性格: 自大
+[6] 呆呆王(伽勒尔形态) Lv.100 属性:毒/超能 太晶属性: 水 性格: 自大
     特性: 再生力 描述: This Pokemon restores 1/3 of its maximum HP, rounded down, when it switches out.
     携带物品: 厚底靴
     种族值: HP:95 攻击:65 防御:80 特攻:110 特防:110 速度:30
