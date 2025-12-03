@@ -57,7 +57,10 @@ export abstract class LLMProvider {
 	/**
 	 * 获取最近的对话历史（限制数量）
 	 */
-	protected getRecentHistory(maxMessages: number = 6): LLMMessage[] {
+	protected getRecentHistory(maxMessages: number = 0): LLMMessage[] {
+		if (maxMessages <= 0) {
+			return [];
+		}
 		return this.conversationHistory.slice(-maxMessages);
 	}
 
@@ -74,7 +77,7 @@ export abstract class LLMProvider {
 	protected buildMessages(prompt: string, systemPrompt: string): LLMMessage[] {
 		return [
 			{ role: 'system', content: systemPrompt },
-			...this.getRecentHistory(),
+			// ...this.getRecentHistory(),
 			{ role: 'user', content: prompt }
 		];
 	}

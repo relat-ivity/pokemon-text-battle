@@ -308,7 +308,7 @@ function displayDoublesSwitchChoices(request, translator) {
 	const pokemon = request.side.pokemon;
 
 	pokemon.forEach((p, index) => {
-		if (p.condition && !p.condition.endsWith(' fnt')) {
+		if (!p.active && p.condition && !p.condition.endsWith(' fnt')) {
 			const name = p.details.split(',')[0];
 			const nameCN = translator.translate(name, 'pokemon');
 			const hp = p.condition;

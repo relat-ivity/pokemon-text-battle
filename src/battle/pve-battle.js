@@ -577,7 +577,7 @@ async function startPVEBattle() {
 	console.log('    切换宝可梦: switch 2 或 s2');
 	console.log('    太晶化攻击: move 1 tera 或 m1 t');
 	console.log('    查看队伍: team (查看宝可梦状态)');
-	console.log('    双打: m1 +1 t,s3 （己方-1使用招式1太晶化攻击对手+1，己方-2切换到3号宝可梦）');
+	console.log('    双打: m1 1 t,s3 （己方-1使用招式1太晶化攻击对手+1位置，己方-2切换到3号宝可梦）');
 
 	// 选择对手
 	const {
@@ -612,9 +612,8 @@ async function startPVEBattle() {
 	const streams = Sim.getPlayerStreams(new Sim.BattleStream());
 
 	// 创建 AI 对手
-	// 获取 PokéChamp LLM 后端配置
-	const pokechampBackend = process.env.POKECHAMP_LLM_BACKEND || 'deepseek/deepseek-chat-v3.1:free';
-	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode, p2team, p1team, pokechampBackend);
+	// 创建AI时传递战斗格式，用于判断单打/双打
+	const ai = AIPlayerFactory.createAI(aiType, streams.p2, debug_mode, p2team, p1team, format);
 
 	// 获取实际的 AI 名字（如果降级会显示降级后的名字）
 	let actualOpponentName = opponent;
