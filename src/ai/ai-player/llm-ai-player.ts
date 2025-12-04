@@ -998,7 +998,7 @@ ${battleState}${actions}${historyText}`;
 			let teamSummary = '';
 			if (request.side && request.side.pokemon) {
 				const pokemonNames = request.side.pokemon.map((p: any, i: number) => {
-					const speciesName = p.ident.split(': ')[1];
+					const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
 					const speciesCN = this.translate(speciesName, 'pokemon');
 					return `${i + 1}.${speciesCN}`;
 				});
@@ -1251,7 +1251,7 @@ ${extraInfo}`;
 		// 我方队伍信息
 		state += '【我方队伍】\n';
 		request.side.pokemon.forEach((p: any, i: number) => {
-			const speciesName = p.ident.split(': ')[1];
+			const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
 			const speciesCN = this.translate(speciesName, 'pokemon');
 			const speciesData = Dex.species.get(speciesName);
 			let pokemonData: AnyObject | undefined = undefined;
@@ -1475,7 +1475,7 @@ ${extraInfo}`;
 	private getBaseSystemPrompt(): string {
 		let debugInfo = '';
 		if (this.debugmode || this.aiResponseLogMode) {
-			debugInfo = '，并在后面加上一句解释';
+			debugInfo = '，并在后面加上一句解释这个选择的原因';
 		}
 		return `你是一名宝可梦对战专家，精通单打对战策略。
 【任务】

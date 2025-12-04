@@ -3,7 +3,7 @@
 
 可以以**文本形式**和AI进行宝可梦第九代对战（支持gen9的双打和单打）。
 
-Version：1.0.2
+Version：1.1.0
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

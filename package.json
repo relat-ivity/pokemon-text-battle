@@ -1,6 +1,6 @@
 {
   "name": "pokemon-text-battle",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "可以在命令行和AI进行第九代随机六六单打",
   "scripts": {
     "start": "npm run build && node src/battle/pve-battle.js",

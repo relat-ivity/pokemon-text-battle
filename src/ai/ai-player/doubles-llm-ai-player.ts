@@ -925,7 +925,7 @@ ${battleState}${actions}${historyText}`;
 			let teamSummary = '';
 			if (request.side && request.side.pokemon) {
 				const pokemonNames = request.side.pokemon.map((p: any, i: number) => {
-					const speciesName = p.ident.split(': ')[1];
+					const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
 					const speciesCN = this.translate(speciesName, 'pokemon');
 					return `${i + 1}.${speciesCN}`;
 				});
@@ -937,13 +937,14 @@ ${battleState}${actions}${historyText}`;
 				// 从 playerTeamInfo 中解析出对手的首发宝可梦（前两位数字）
 				const firstPokemon = parseInt(playerTeamInfo.charAt(0));
 				const secondPokemon = parseInt(playerTeamInfo.charAt(1));
-				extraInfo += `【重要情报】对方的首发是${firstPokemon}号和${secondPokemon}号宝可梦！\n`;
+				const back = playerTeamInfo.split('').slice(2).join(', ');
+				extraInfo += `【重要情报】对方的选择是${firstPokemon}号和${secondPokemon}号宝可梦，后排宝可梦编号是：${back}！\n`;
 			}
 
 			const historyText = this.getHistoryText();
-			const prompt = `当前要设置VGC双打队伍首发。指令格式：team 1234（请按出战顺序选择4只参战，前两只为双打首发，数字为宝可梦编号）。
+			const prompt = `当前要设置VGC双打队伍首发，请按出战顺序选择4只参战，前两只为双打首发，。指令格式：team 1234（示例中编号为1和2的两只是首发）。
 ${battleState}
-【队伍选择】你的队伍是：${teamSummary}
+【队伍选择】你的队伍编号是：${teamSummary}
 ${extraInfo}`;
 
 			const systemPrompt = this.getVGCSystemPrompt();
@@ -1334,7 +1335,7 @@ ${extraInfo}`;
 	private getVGCSystemPrompt(): string {
 		let debugInfo = '';
 		if (this.debugmode || this.aiResponseLogMode) {
-			debugInfo = '，并在后面加上一句解释';
+			debugInfo = '，并在后面加上一句解释这个选择的原因';
 		}
 		return `你是一名宝可梦VGC双打对战专家，精通双打策略。
 【任务】
