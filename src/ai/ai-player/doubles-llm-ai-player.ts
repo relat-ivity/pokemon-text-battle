@@ -47,7 +47,7 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 	private opponentTeamData: any[] | null = null;
 
 	// debug设置
-	private debugmode: boolean = true;
+	private debugmode: boolean = false;
 	private aiResponseLogMode: boolean = false;
 
 	// 场地状态跟踪
@@ -652,9 +652,41 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 	private async handleForceSwitchAsync(request: SwitchRequest): Promise<void> {
 		const pokemon = request.side.pokemon;
 		const chosen: number[] = [];
+		const choices: string[] = [];
 
-		const choicePromises = request.forceSwitch.map(async (mustSwitch, i) => {
-			if (!mustSwitch) return 'pass';
+		// 计算需要切换的位置数量
+		const needSwitchCount = request.forceSwitch.filter(s => s).length;
+
+		// 获取所有可用的后备宝可梦
+		const allAvailable = this.range(1, 6).filter(j => (
+			pokemon[j - 1] &&
+			j > request.forceSwitch.length &&
+			!pokemon[j - 1].condition.endsWith(` fnt`)
+		));
+
+		// 优化：如果需要切换的数量等于可用宝可梦数量，直接按顺序分配，无需AI
+		if (needSwitchCount === allAvailable.length && needSwitchCount > 0) {
+			let availableIndex = 0;
+			for (let i = 0; i < request.forceSwitch.length; i++) {
+				if (request.forceSwitch[i]) {
+					choices.push(`switch ${allAvailable[availableIndex]}`);
+					availableIndex++;
+				} else {
+					choices.push('pass');
+				}
+			}
+			this.choose(choices.join(', '));
+			return;
+		}
+
+		// 串行处理每个切换请求，避免同时选择同一只宝可梦
+		for (let i = 0; i < request.forceSwitch.length; i++) {
+			const mustSwitch = request.forceSwitch[i];
+
+			if (!mustSwitch) {
+				choices.push('pass');
+				continue;
+			}
 
 			const canSwitch = this.range(1, 6).filter(j => (
 				pokemon[j - 1] &&
@@ -663,15 +695,26 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 				!pokemon[j - 1].condition.endsWith(` fnt`) === !pokemon[i].reviving
 			));
 
-			if (!canSwitch.length) return 'pass';
+			if (!canSwitch.length) {
+				choices.push('pass');
+				continue;
+			}
 
+			// 优化：如果只有一个可选宝可梦，直接选择，不需要调用AI
+			if (canSwitch.length === 1) {
+				const target = canSwitch[0];
+				chosen.push(target);
+				choices.push(`switch ${target}`);
+				continue;
+			}
+
+			// 需要AI决策
 			const switchOptions = canSwitch.map(slot => ({ slot, pokemon: pokemon[slot - 1] }));
 			const target = await this.chooseSwitchWithAI(switchOptions, request);
 			chosen.push(target);
-			return `switch ${target}`;
-		});
+			choices.push(`switch ${target}`);
+		}
 
-		const choices = await Promise.all(choicePromises);
 		this.choose(choices.join(', '));
 	}
 
@@ -878,6 +921,17 @@ ${battleState}${actions}${historyText}`;
 		try {
 			const battleState = this.buildBattleState(request, true);
 
+			// 生成队伍简要列表（单行显示）
+			let teamSummary = '';
+			if (request.side && request.side.pokemon) {
+				const pokemonNames = request.side.pokemon.map((p: any, i: number) => {
+					const speciesName = p.ident.split(': ')[1];
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					return `${i + 1}.${speciesCN}`;
+				});
+				teamSummary = pokemonNames.join(' ');
+			}
+
 			let extraInfo = '';
 			if (this.shouldCheat() && playerTeamInfo) {
 				// 从 playerTeamInfo 中解析出对手的首发宝可梦（前两位数字）
@@ -887,8 +941,9 @@ ${battleState}${actions}${historyText}`;
 			}
 
 			const historyText = this.getHistoryText();
-			const prompt = `当前要设置VGC双打队伍首发。指令格式：team 1234（前两只为双打首发，数字为宝可梦编号）
+			const prompt = `当前要设置VGC双打队伍首发。指令格式：team 1234（请按出战顺序选择4只参战，前两只为双打首发，数字为宝可梦编号）。
 ${battleState}
+【队伍选择】你的队伍是：${teamSummary}
 ${extraInfo}`;
 
 			const systemPrompt = this.getVGCSystemPrompt();
@@ -1095,7 +1150,8 @@ ${extraInfo}`;
 		// 我方队伍信息
 		state += '【我方队伍】\n';
 		request.side.pokemon.forEach((p: any, i: number) => {
-			const speciesName = p.ident.split(': ')[1];
+			// 从 details 字段获取完整的种类名称（包含形态），格式：'Species-Form, L50, M/F'
+			const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
 			const speciesCN = this.translate(speciesName, 'pokemon');
 			const speciesData = Dex.species.get(speciesName);
 			let pokemonData: AnyObject | undefined = undefined;

@@ -120,7 +120,10 @@ function generateValidTeam(format, teamFile = null) {
 		console.log(`⚠️  未找到 ${format} 的预设队伍，使用随机生成`);
 	}
 
-	let team = Sim.Teams.generate('gen9randombattle');
+	// 根据格式判断是单打还是双打，使用对应的随机生成
+	const isDoubles = format.includes('double') || format.includes('vgc');
+	const randomFormat = isDoubles ? 'gen9randomdoublesbattle' : 'gen9randombattle';
+	let team = Sim.Teams.generate(randomFormat);
 	return {
 		team: team,
 		fileName: null

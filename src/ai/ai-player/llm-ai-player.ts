@@ -44,7 +44,7 @@ export class LLMAIPlayer extends AIPlayer {
 	private opponentTeamData: any[] | null = null;
 
 	// debug设置
-	private debugmode: boolean = true;
+	private debugmode: boolean = false;
 	private aiResponseLogMode: boolean = false;
 
 	// 场地状态跟踪
@@ -994,6 +994,17 @@ ${battleState}${actions}${historyText}`;
 		try {
 			const battleState = this.buildBattleState(request, true);
 
+			// 生成队伍简要列表（单行显示）
+			let teamSummary = '';
+			if (request.side && request.side.pokemon) {
+				const pokemonNames = request.side.pokemon.map((p: any, i: number) => {
+					const speciesName = p.ident.split(': ')[1];
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					return `${i + 1}.${speciesCN}`;
+				});
+				teamSummary = pokemonNames.join(' ');
+			}
+
 			let extraInfo = '';
 			let damageCalcForFirstPokemon = '';
 			if (playerTeamInfo) {
@@ -1016,6 +1027,7 @@ ${battleState}${actions}${historyText}`;
 3. 特性和道具配合
 4. 攻守平衡
 ${battleState}
+【队伍选择】你的队伍是：${teamSummary}
 ${extraInfo}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
