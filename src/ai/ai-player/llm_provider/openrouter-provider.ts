@@ -68,7 +68,6 @@ export class OpenRouterProvider extends LLMProvider {
 					temperature: this.temperature,
 					max_tokens: this.maxTokens,
 					reasoning: { 
-						enabled: false,
 						effort: "minimal" // 可选: "minimal", "low", "medium", "high" 
 					}
 				},
