@@ -4,6 +4,7 @@
 
 import { SmartAIPlayer } from './ai-player/smart-ai-player';
 import { LLMAIPlayer } from './ai-player/llm-ai-player';
+import { DoublesLLMAIPlayer } from './ai-player/doubles-llm-ai-player';
 import { RandomAIPlayer } from './ai-player/random-ai-player';
 import { MasterAIPlayer } from './ai-player/master-ai-player';
 import { AIPlayer } from './ai-player';
@@ -99,19 +100,33 @@ export class AIPlayerFactory {
 	}
 
 	/**
+	 * 判断是否为双打格式
+	 * @param format 战斗格式（如 gen9vgc2024, gen9doublesou, gen9ou 等）
+	 * @returns 是否为双打格式
+	 */
+	private static isDoublesFormat(format?: string): boolean {
+		if (!format) return false;
+		const formatLower = format.toLowerCase();
+		// VGC 或 doubles 格式都是双打
+		return formatLower.includes('vgc') || formatLower.includes('doubles');
+	}
+
+	/**
 	 * 创建 AI 实例
 	 * @param type AI类型
 	 * @param playerStream 玩家流
 	 * @param debug 是否开启调试
 	 * @param teamData 我方队伍数据（LLM AI使用）
 	 * @param opponentTeamData 对手队伍数据（LLM AI使用）
+	 * @param format 战斗格式（如 gen9vgc2024, gen9ou 等），用于判断单打/双打
 	 */
 	static createAI(
 		type: string,
 		playerStream: any,
 		debug: boolean = false,
 		teamData: any[] | null = null,
-		opponentTeamData: any[] | null = null
+		opponentTeamData: any[] | null = null,
+		format?: string
 	): AIPlayer {
 		const config = AI_CONFIG[type as keyof typeof AI_CONFIG];
 		if (!config) {
@@ -134,7 +149,15 @@ export class AIPlayerFactory {
 						console.log('⚠ LLM Provider 创建失败，降级到 Smart AI');
 						return this.getDefaultAI(playerStream, debug);
 					}
-					ai = new LLMAIPlayer(playerStream, provider, teamData, opponentTeamData, debug);
+
+					// 根据格式判断创建单打或双打 AI
+					if (this.isDoublesFormat(format)) {
+						console.log('✓ 检测到双打格式，使用双打专用 LLM AI');
+						ai = new DoublesLLMAIPlayer(playerStream, provider, teamData, opponentTeamData, debug);
+					} else {
+						console.log('✓ 检测到单打格式，使用单打 LLM AI');
+						ai = new LLMAIPlayer(playerStream, provider, teamData, opponentTeamData, debug);
+					}
 					break;
 				}
 				case 'master_ai':
@@ -153,24 +176,5 @@ export class AIPlayerFactory {
 			}
 			throw error;
 		}
-	}
-
-	/**
-	 * 使用 OpenRouter 创建 LLM AI
-	 * @param model OpenRouter 模型名称
-	 * @param playerStream 玩家流
-	 * @param debug 是否开启调试
-	 * @param teamData 我方队伍数据
-	 * @param opponentTeamData 对手队伍数据
-	 */
-	static createOpenRouterAI(
-		model: string,
-		playerStream: any,
-		debug: boolean = false,
-		teamData: any[] | null = null,
-		opponentTeamData: any[] | null = null
-	): AIPlayer {
-		const provider = new OpenRouterProvider(model, undefined, debug);
-		return new LLMAIPlayer(playerStream, provider, teamData, opponentTeamData, debug);
 	}
 }

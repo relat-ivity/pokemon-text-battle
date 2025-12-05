@@ -75,6 +75,11 @@ export class DamageCalculator {
 	private static createPokemon(data: PokemonData): any {
 		const gen = this.getGeneration();
 
+		// 验证 species 是否有效
+		if (!data.species) {
+			throw new Error('Pokemon species is undefined or empty');
+		}
+
 		// 构建 Pokemon 配置
 		const config: any = {
 			level: data.level || 100,

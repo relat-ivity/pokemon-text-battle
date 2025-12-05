@@ -145,9 +145,14 @@ function displayChoices(battleState, request, translator, debugMode = false) {
 			console.log(`   天气: ${weatherCN}`);
 		}
 
-		if (battleState.field.terrain.length > 0) {
-			const terrainsCN = battleState.field.terrain.map(t => translator.translate(t, 'terrains')).join(', ');
-			console.log(`   场地: ${terrainsCN}`);
+		if (battleState.field.terrain) {
+			const terrainCN = translator.translate(battleState.field.terrain, 'terrains');
+			console.log(`   场地: ${terrainCN}`);
+		}
+
+		if (battleState.field.fieldEffects.length > 0) {
+			const effectsCN = battleState.field.fieldEffects.map(e => translator.translate(e, 'moves')).join(', ');
+			console.log(`   全场效果: ${effectsCN}`);
 		}
 
 		if (battleState.field.p1Side.length > 0) {

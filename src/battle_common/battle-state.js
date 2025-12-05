@@ -52,7 +52,8 @@ function isPokemonSame(name1, name2) {
 class BattleField {
 	constructor() {
 		this.weather = null;
-		this.terrain = []; // 场地效果数组，支持多个叠加
+		this.terrain = null; // 场地效果（互斥的，一次只能有一个）
+		this.fieldEffects = []; // 全场效果数组（戏法空间、重力等，可以叠加）
 		this.p1Side = []; // 我方场地效果
 		this.p2Side = []; // 对手场地效果
 	}
@@ -65,21 +66,38 @@ class BattleField {
 	}
 
 	/**
-	 * 添加场地效果
+	 * 设置场地效果（新场地会替换旧场地）
 	 */
-	addTerrain(terrain) {
-		if (!this.terrain.includes(terrain)) {
-			this.terrain.push(terrain);
-		}
+	setTerrain(terrain) {
+		this.terrain = (terrain && terrain !== 'none') ? terrain : null;
 	}
 
 	/**
 	 * 移除场地效果
 	 */
 	removeTerrain(terrain) {
-		const index = this.terrain.indexOf(terrain);
+		// 只有当要移除的场地与当前场地匹配时才移除
+		if (this.terrain === terrain) {
+			this.terrain = null;
+		}
+	}
+
+	/**
+	 * 添加全场效果（戏法空间、重力等）
+	 */
+	addFieldEffect(effect) {
+		if (!this.fieldEffects.includes(effect)) {
+			this.fieldEffects.push(effect);
+		}
+	}
+
+	/**
+	 * 移除全场效果
+	 */
+	removeFieldEffect(effect) {
+		const index = this.fieldEffects.indexOf(effect);
 		if (index > -1) {
-			this.terrain.splice(index, 1);
+			this.fieldEffects.splice(index, 1);
 		}
 	}
 
@@ -120,7 +138,8 @@ class BattleField {
 	 */
 	hasEffects() {
 		return this.weather ||
-		       this.terrain.length > 0 ||
+		       this.terrain ||
+		       this.fieldEffects.length > 0 ||
 		       this.p1Side.length > 0 ||
 		       this.p2Side.length > 0;
 	}
@@ -462,7 +481,7 @@ class BattleState {
 
 		// 追踪上一回合的天气和场地状态（用于判断是否显示变化消息）
 		this.lastWeather = null;
-		this.lastTerrains = new Set();
+		this.lastTerrain = null;
 	}
 
 	/**
@@ -470,7 +489,7 @@ class BattleState {
 	 */
 	startTurn(turnNumber) {
 		this.currentTurn = turnNumber;
-		this.lastTerrains = new Set(this.field.terrain);
+		this.lastTerrain = this.field.terrain;
 	}
 
 	/**
@@ -536,5 +555,6 @@ module.exports = {
 	PokemonState,
 	PlayerState,
 	OpponentState,
-	isPokemonSame
+	isPokemonSame,
+	normalizeSpeciesName
 };

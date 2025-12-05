@@ -169,15 +169,15 @@ class BattleMessageHandler {
 
 		// 效果拔群/不理想/会心/免疫
 		if (line.startsWith('|-supereffective')) {
-			console.log('  → 效果拔群!');
+			console.log('    → 效果拔群!');
 			return;
 		}
 		if (line.startsWith('|-resisted')) {
-			console.log('  → 效果不理想...');
+			console.log('    → 效果不理想...');
 			return;
 		}
 		if (line.startsWith('|-crit')) {
-			console.log('  → 会心一击!');
+			console.log('    → 会心一击!');
 			return;
 		}
 		if (line.startsWith('|-immune')) {
@@ -473,7 +473,7 @@ class BattleMessageHandler {
 		const speciesCN = this.translate(species, 'pokemon');
 		const newSpeciesCN = this.translate(newSpecies, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 变成了 ${newSpeciesCN} 形态!`);
+		console.log(`    → ${player} ${speciesCN} 变成了 ${newSpeciesCN} 形态!`);
 	}
 
 	/**
@@ -513,7 +513,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 移动到了位置 ${position}!`);
+		console.log(`    → ${player} ${speciesCN} 移动到了位置 ${position}!`);
 	}
 
 	/**
@@ -552,7 +552,7 @@ class BattleMessageHandler {
 			moveText = ` (${moveCN})`;
 		}
 
-		console.log(`  → ${player} ${speciesCN} 因为${reasonCN}无法行动!${moveText}`);
+		console.log(`    → ${player} ${speciesCN} 因为${reasonCN}无法行动!${moveText}`);
 	}
 
 	/**
@@ -602,12 +602,12 @@ class BattleMessageHandler {
 
 		if (actionText) {
 			if (actionText === "unboost") {
-				console.log(`  → ${player} ${speciesCN} 的能力没有下降!`);
+				console.log(`    → ${player} ${speciesCN} 的能力没有下降!`);
 			} else {
-				console.log(`  → ${player} ${speciesCN} 的${actionText}效果失败了!`);
+				console.log(`    → ${player} ${speciesCN} 的${actionText}效果失败了!`);
 			}
 		} else {
-			console.log(`  → ${player} ${speciesCN} 的攻击失败了!`);
+			console.log(`    → ${player} ${speciesCN} 的攻击失败了!`);
 		}
 	}
 
@@ -633,7 +633,7 @@ class BattleMessageHandler {
 			effectCN = this.translate(moveName, 'moves');
 		}
 
-		console.log(`  → ${player} ${speciesCN} 的效果被${effectCN}阻挡了!`);
+		console.log(`    → ${player} ${speciesCN} 的效果被${effectCN}阻挡了!`);
 	}
 
 	/**
@@ -648,9 +648,9 @@ class BattleMessageHandler {
 			const player = isPlayer ? '【你】' : '【对手】';
 			const species = playerTag.split(': ')[1];
 			const speciesCN = this.translate(species, 'pokemon');
-			console.log(`  → ${player} ${speciesCN} 的攻击没有目标!`);
+			console.log(`    → ${player} ${speciesCN} 的攻击没有目标!`);
 		} else {
-			console.log('  → 攻击没有目标!');
+			console.log('    → 攻击没有目标!');
 		}
 	}
 
@@ -667,9 +667,9 @@ class BattleMessageHandler {
 			const player = isPlayer ? '【你】' : '【对手】';
 			const targetName = target.split(': ')[1];
 			const targetCN = this.translate(targetName, 'pokemon');
-			console.log(`  → 攻击没有命中 ${player} ${targetCN}!`);
+			console.log(`    → 攻击没有命中 ${player} ${targetCN}!`);
 		} else {
-			console.log('  → 攻击没有命中!');
+			console.log('    → 攻击没有命中!');
 		}
 	}
 
@@ -685,9 +685,9 @@ class BattleMessageHandler {
 			const player = isPlayer ? '【你】' : '【对手】';
 			const species = playerTag.split(': ')[1];
 			const speciesCN = this.translate(species, 'pokemon');
-			console.log(`  → ${player} ${speciesCN} 完全没有效果!`);
+			console.log(`    → ${player} ${speciesCN} 完全没有效果!`);
 		} else {
-			console.log('  → 没有效果!');
+			console.log('    → 没有效果!');
 		}
 	}
 
@@ -703,7 +703,7 @@ class BattleMessageHandler {
 		const targetName = target.split(': ')[1];
 		const targetCN = this.translate(targetName, 'pokemon');
 
-		console.log(`  → ${player} ${targetCN} 受到伤害! (HP: ${hp})`);
+		console.log(`    → ${player} ${targetCN} 受到伤害! (HP: ${hp})`);
 
 		// 更新对手宝可梦HP
 		if (!isPlayer && this.isPokemonSame(this.state.opponent.species, targetName)) {
@@ -732,7 +732,7 @@ class BattleMessageHandler {
 		}
 		const fromText = fromCN ? ` (${fromCN})` : '';
 
-		console.log(`  → ${player} ${targetCN} 恢复了HP!${fromText} (HP: ${hp})`);
+		console.log(`    → ${player} ${targetCN} 恢复了HP!${fromText} (HP: ${hp})`);
 
 		// 更新对手宝可梦HP
 		if (!isPlayer && this.isPokemonSame(this.state.opponent.species, targetName)) {
@@ -753,7 +753,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 的HP变为 ${hp}!`);
+		console.log(`    → ${player} ${speciesCN} 的HP变为 ${hp}!`);
 
 		// 更新对手宝可梦HP
 		if (!isPlayer && this.isPokemonSame(this.state.opponent.species, species)) {
@@ -806,7 +806,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 治愈了队伍的异常状态!`);
+		console.log(`    → ${player} ${speciesCN} 治愈了队伍的异常状态!`);
 	}
 
 	/**
@@ -820,7 +820,7 @@ class BattleMessageHandler {
 		const pokemonName = pokemon.split(': ')[1];
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 
-		console.log(`  → ${player} ${pokemonCN} 倒下了!`);
+		console.log(`    → ${player} ${pokemonCN} 倒下了!`);
 
 		// 追踪对手宝可梦的昏厥状态
 		if (!isPlayer) {
@@ -870,7 +870,7 @@ class BattleMessageHandler {
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 		const statCN = this.translate(stat, 'boosts');
 
-		console.log(`  → ${player} ${pokemonCN} 的 ${statCN} 上升了 ${amount} 级!`);
+		console.log(`    → ${player} ${pokemonCN} 的 ${statCN} 上升了 ${amount} 级!`);
 
 		if (isPlayer) {
 			this.state.player.boost(stat, amount);
@@ -893,7 +893,7 @@ class BattleMessageHandler {
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 		const statCN = this.translate(stat, 'boosts');
 
-		console.log(`  → ${player} ${pokemonCN} 的 ${statCN} 下降了 ${amount} 级!`);
+		console.log(`    → ${player} ${pokemonCN} 的 ${statCN} 下降了 ${amount} 级!`);
 
 		if (isPlayer) {
 			this.state.player.unboost(stat, amount);
@@ -913,7 +913,7 @@ class BattleMessageHandler {
 		const pokemonName = pokemon.split(': ')[1];
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 
-		console.log(`  → ${player} ${pokemonCN} 的能力变化被清除了!`);
+		console.log(`    → ${player} ${pokemonCN} 的能力变化被清除了!`);
 
 		if (isPlayer) {
 			this.state.player.clearBoosts();
@@ -926,7 +926,7 @@ class BattleMessageHandler {
 	 * 处理清除所有能力变化（白雾）
 	 */
 	handleClearAllBoost(line) {
-		console.log('  → 所有宝可梦的能力变化被清除了!');
+		console.log('    → 所有宝可梦的能力变化被清除了!');
 		this.state.player.clearBoosts();
 		this.state.opponent.clearBoosts();
 	}
@@ -945,7 +945,7 @@ class BattleMessageHandler {
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 		const statCN = this.translate(stat, 'boosts');
 
-		console.log(`  → ${player} ${pokemonCN} 的${statCN}变为 ${amount} 级!`);
+		console.log(`    → ${player} ${pokemonCN} 的${statCN}变为 ${amount} 级!`);
 
 		// 设置能力变化到特定值
 		if (isPlayer) {
@@ -974,7 +974,7 @@ class BattleMessageHandler {
 		const targetName = target.split(': ')[1];
 		const targetCN = this.translate(targetName, 'pokemon');
 
-		console.log(`  → ${sourcePlayer} ${sourceCN} 和 ${targetPlayer} ${targetCN} 交换了能力变化!`);
+		console.log(`    → ${sourcePlayer} ${sourceCN} 和 ${targetPlayer} ${targetCN} 交换了能力变化!`);
 	}
 
 	/**
@@ -988,7 +988,7 @@ class BattleMessageHandler {
 		const pokemonName = pokemon.split(': ')[1];
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 
-		console.log(`  → ${player} ${pokemonCN} 的能力变化被反转了!`);
+		console.log(`    → ${player} ${pokemonCN} 的能力变化被反转了!`);
 	}
 
 	/**
@@ -1002,7 +1002,7 @@ class BattleMessageHandler {
 		const targetName = target.split(': ')[1];
 		const targetCN = this.translate(targetName, 'pokemon');
 
-		console.log(`  → ${player} ${targetCN} 的正面能力变化被清除了!`);
+		console.log(`    → ${player} ${targetCN} 的正面能力变化被清除了!`);
 	}
 
 	/**
@@ -1016,7 +1016,7 @@ class BattleMessageHandler {
 		const pokemonName = pokemon.split(': ')[1];
 		const pokemonCN = this.translate(pokemonName, 'pokemon');
 
-		console.log(`  → ${player} ${pokemonCN} 的负面能力变化被清除了!`);
+		console.log(`    → ${player} ${pokemonCN} 的负面能力变化被清除了!`);
 	}
 
 	/**
@@ -1037,7 +1037,7 @@ class BattleMessageHandler {
 		const targetName = target.split(': ')[1];
 		const targetCN = this.translate(targetName, 'pokemon');
 
-		console.log(`  → ${targetPlayer} ${targetCN} 复制了 ${sourcePlayer} ${sourceCN} 的能力变化!`);
+		console.log(`    → ${targetPlayer} ${targetCN} 复制了 ${sourcePlayer} ${sourceCN} 的能力变化!`);
 	}
 
 	/**
@@ -1055,7 +1055,7 @@ class BattleMessageHandler {
 		const effectName = effectData.name || effect;
 		const effectCN = this.translate(effectName, 'moves');
 
-		console.log(`  → ${player} 的场地上散布了 ${effectCN}!`);
+		console.log(`    → ${player} 的场地上散布了 ${effectCN}!`);
 
 		if (isPlayer) {
 			this.state.field.addP1SideEffect(effectName);
@@ -1078,7 +1078,7 @@ class BattleMessageHandler {
 		const effectName = effectData.name || effect;
 		const effectCN = this.translate(effectName, 'moves');
 
-		console.log(`  → ${player} 的 ${effectCN} 消失了!`);
+		console.log(`    → ${player} 的 ${effectCN} 消失了!`);
 
 		if (isPlayer) {
 			this.state.field.removeP1SideEffect(effectName);
@@ -1099,10 +1099,10 @@ class BattleMessageHandler {
 		if (newWeather !== this.state.lastWeather) {
 			if (newWeather) {
 				const weatherCN = this.translate(newWeather, 'weathers');
-				console.log(`  → 天气变为: ${weatherCN}`);
+				console.log(`    → 天气变为: ${weatherCN}`);
 			} else if (this.state.lastWeather) {
 				const weatherCN = this.translate(this.state.lastWeather, 'weathers');
-				console.log(`  → ${weatherCN} 结束了!`);
+				console.log(`    → ${weatherCN} 结束了!`);
 			}
 			this.state.lastWeather = newWeather;
 		}
@@ -1119,18 +1119,27 @@ class BattleMessageHandler {
 		// 判断是场地还是全场效果
 		const terrainNames = ['Electric Terrain', 'Grassy Terrain', 'Misty Terrain', 'Psychic Terrain'];
 		if (terrainNames.includes(field)) {
-			// 检查是否是新场地（不在当前场地数组中）
-			if (!this.state.field.terrain.includes(field)) {
-				// 检查是否与上一回合不同
-				if (!this.state.lastTerrains.has(field)) {
+			// 场地效果：互斥的，新场地会替换旧场地
+			const oldTerrain = this.state.field.terrain;
+			if (field !== oldTerrain) {
+				// 只有当场地与上一回合不同时才显示消息
+				if (field !== this.state.lastTerrain) {
 					const fieldCN = this.translate(field, 'terrains');
-					console.log(`  → 场地变为: ${fieldCN}`);
+					if (oldTerrain) {
+						// 如果有旧场地，显示替换消息
+						const oldTerrainCN = this.translate(oldTerrain, 'terrains');
+						console.log(`    → 场地从 ${oldTerrainCN} 变为 ${fieldCN}!`);
+					} else {
+						console.log(`    → 场地变为: ${fieldCN}`);
+					}
 				}
-				this.state.field.addTerrain(field);
+				this.state.field.setTerrain(field);
 			}
 		} else {
+			// 全场效果：可以叠加（戏法空间、重力等）
+			this.state.field.addFieldEffect(field);
 			const fieldCN = this.translate(field, 'moves');
-			console.log(`  → ${fieldCN} 开始了!`);
+			console.log(`    → ${fieldCN} 开始了!`);
 		}
 	}
 
@@ -1143,14 +1152,17 @@ class BattleMessageHandler {
 
 		const terrainNames = ['Electric Terrain', 'Grassy Terrain', 'Misty Terrain', 'Psychic Terrain'];
 		if (terrainNames.includes(field)) {
-			if (this.state.field.terrain.includes(field)) {
+			// 场地效果结束
+			if (this.state.field.terrain === field) {
 				this.state.field.removeTerrain(field);
 				const fieldCN = this.translate(field, 'terrains');
-				console.log(`  → ${fieldCN} 结束了!`);
+				console.log(`    → ${fieldCN} 结束了!`);
 			}
 		} else {
+			// 全场效果结束
+			this.state.field.removeFieldEffect(field);
 			const fieldCN = this.translate(field, 'moves');
-			console.log(`  → ${fieldCN} 结束了!`);
+			console.log(`    → ${fieldCN} 结束了!`);
 		}
 	}
 
@@ -1158,7 +1170,7 @@ class BattleMessageHandler {
 	 * 处理交换场地效果（场地互换）
 	 */
 	handleSwapSideConditions(line) {
-		console.log('  → 双方的场地效果互换了!');
+		console.log('    → 双方的场地效果互换了!');
 		// 交换双方的场地效果
 		const temp = [...this.state.field.p1SideEffects];
 		this.state.field.p1SideEffects = [...this.state.field.p2SideEffects];
@@ -1187,7 +1199,7 @@ class BattleMessageHandler {
 		} else if (effect.startsWith('ability: ')) {
 			const abilityName = effect.replace('ability: ', '');
 			effectCN = this.translate(abilityName, 'abilities');
-			console.log(`  → ${player} ${speciesCN}的 ${effectCN} 发动了!`);
+			console.log(`    → ${player} ${speciesCN}的 ${effectCN} 发动了!`);
 			return;
 		} else if (effect === 'confusion') {
 			effectCN = '混乱';
@@ -1217,11 +1229,11 @@ class BattleMessageHandler {
 			// 提取能力值（最后3个字符）
 			const stat = effect.slice(-3);
 			const statCN = statMap[stat] || stat;
-			console.log(`  → ${player} ${speciesCN} 的 ${statCN} 提升了!`);
+			console.log(`    → ${player} ${speciesCN} 的 ${statCN} 提升了!`);
 			return;
 		}
 
-		console.log(`  → ${player} ${speciesCN} 陷入了 ${effectCN} 状态!`);
+		console.log(`    → ${player} ${speciesCN} 陷入了 ${effectCN} 状态!`);
 	}
 
 	/**
@@ -1281,9 +1293,9 @@ class BattleMessageHandler {
 		const itemCN = this.translate(itemName, 'items');
 
 		if (from) {
-			console.log(`  → ${player} ${speciesCN} 的${itemCN}被发现了!`);
+			console.log(`    → ${player} ${speciesCN} 的${itemCN}被发现了!`);
 		} else {
-			console.log(`  → ${player} ${speciesCN} 携带着${itemCN}!`);
+			console.log(`    → ${player} ${speciesCN} 携带着${itemCN}!`);
 		}
 	}
 
@@ -1336,9 +1348,9 @@ class BattleMessageHandler {
 				const fromAbility = from.replace('[from] ability: ', '');
 				fromCN = this.translate(fromAbility, 'abilities');
 			}
-			console.log(`  → ${player} ${speciesCN} 的特性变为 ${abilityCN} ! (${fromCN})`);
+			console.log(`    → ${player} ${speciesCN} 的特性变为 ${abilityCN} ! (${fromCN})`);
 		} else {
-			console.log(`  → ${player} ${speciesCN} 的特性 ${abilityCN} 发动了!`);
+			console.log(`    → ${player} ${speciesCN} 的特性 ${abilityCN} 发动了!`);
 		}
 	}
 
@@ -1354,7 +1366,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 的特性被压制了!`);
+		console.log(`    → ${player} ${speciesCN} 的特性被压制了!`);
 	}
 
 	// ==================== 特殊形态 ====================
@@ -1373,7 +1385,7 @@ class BattleMessageHandler {
 		const speciesCN = this.translate(species, 'pokemon');
 		const targetCN = this.translate(target, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 变身成了 ${targetCN}!`);
+		console.log(`    → ${player} ${speciesCN} 变身成了 ${targetCN}!`);
 	}
 
 	/**
@@ -1454,7 +1466,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 的守住被Z招式突破了!`);
+		console.log(`    → ${player} ${speciesCN} 的守住被Z招式突破了!`);
 	}
 
 	// ==================== 杂项效果 ====================
@@ -1488,7 +1500,7 @@ class BattleMessageHandler {
 			}
 
 			if (effectText) {
-				console.log(`  → ${player} ${speciesCN} 的 ${effectText} 发动了!`);
+				console.log(`    → ${player} ${speciesCN} 的 ${effectText} 发动了!`);
 			}
 		} else if (effect && effect.includes(': ')) {
 			// 不是宝可梦标签，但包含 ': ' 的其他效果
@@ -1500,7 +1512,7 @@ class BattleMessageHandler {
 			} else if (prefix.includes('item')) {
 				effectCN = this.translate(name, 'items');
 			}
-			console.log(`  → ${effectCN} 发动了!`);
+			console.log(`    → ${effectCN} 发动了!`);
 		}
 	}
 
@@ -1517,7 +1529,7 @@ class BattleMessageHandler {
 	 * 处理三打居中
 	 */
 	handleCenter(line) {
-		console.log('  → 宝可梦自动居中了!');
+		console.log('    → 宝可梦自动居中了!');
 	}
 
 	/**
@@ -1533,7 +1545,7 @@ class BattleMessageHandler {
 	 * 处理招式合体
 	 */
 	handleCombine(line) {
-		console.log('  → 招式合体了!');
+		console.log('    → 招式合体了!');
 	}
 
 	/**
@@ -1554,7 +1566,7 @@ class BattleMessageHandler {
 		const targetName = target.split(': ')[1];
 		const targetCN = this.translate(targetName, 'pokemon');
 
-		console.log(`  → ${sourcePlayer} ${sourceCN} 正在等待 ${targetPlayer} ${targetCN}!`);
+		console.log(`    → ${sourcePlayer} ${sourceCN} 正在等待 ${targetPlayer} ${targetCN}!`);
 	}
 
 	/**
@@ -1580,9 +1592,9 @@ class BattleMessageHandler {
 			const defenderPlayer = defenderIsPlayer ? '【你】' : '【对手】';
 			const defenderName = defender.split(': ')[1];
 			const defenderCN = this.translate(defenderName, 'pokemon');
-			console.log(`  → ${player} ${speciesCN} 正在准备${moveCN}对付 ${defenderPlayer} ${defenderCN}!`);
+			console.log(`    → ${player} ${speciesCN} 正在准备${moveCN}对付 ${defenderPlayer} ${defenderCN}!`);
 		} else {
-			console.log(`  → ${player} ${speciesCN} 正在准备${moveCN}!`);
+			console.log(`    → ${player} ${speciesCN} 正在准备${moveCN}!`);
 		}
 	}
 
@@ -1598,7 +1610,7 @@ class BattleMessageHandler {
 		const species = playerTag.split(': ')[1];
 		const speciesCN = this.translate(species, 'pokemon');
 
-		console.log(`  → ${player} ${speciesCN} 必须休息一回合!`);
+		console.log(`    → ${player} ${speciesCN} 必须休息一回合!`);
 	}
 
 	/**
@@ -1609,7 +1621,7 @@ class BattleMessageHandler {
 		const playerTag = parts[2];
 		const count = parts[3];
 
-		console.log(`  → 击中了 ${count} 次!`);
+		console.log(`    → 击中了 ${count} 次!`);
 	}
 
 	/**
@@ -1629,7 +1641,7 @@ class BattleMessageHandler {
 		const moveName = moveData.name || move;
 		const moveCN = this.translate(moveName, 'moves');
 
-		console.log(`  → ${player} ${speciesCN} 使用了${moveCN}!`);
+		console.log(`    → ${player} ${speciesCN} 使用了${moveCN}!`);
 	}
 
 	/**
@@ -1649,7 +1661,7 @@ class BattleMessageHandler {
 		const moveName = moveData.name || move;
 		const moveCN = this.translate(moveName, 'moves');
 
-		console.log(`  → ${player} ${speciesCN} 使用了${moveCN}!`);
+		console.log(`    → ${player} ${speciesCN} 使用了${moveCN}!`);
 	}
 
 	/**

@@ -229,11 +229,11 @@ npm test              # 运行 LLM AI 测试
 Pokemon Showdown 使用管道分隔的消息：
 
 ```
-|switch|p1a: Pikachu|Pikachu, L50, M|156/156  → 玩家切换皮卡丘上场
-|-damage|p1a: Pikachu|75/156                   → 皮卡丘受伤
-|faint|p1a: Pikachu                            → 皮卡丘倒下
+|switch|p1a: Pikachu|Pikachu, L50, M|156/156    → 玩家切换皮卡丘上场
+|-damage|p1a: Pikachu|75/156                     → 皮卡丘受伤
+|faint|p1a: Pikachu                              → 皮卡丘倒下
 |move|p2a: Charizard|Flamethrower|p1a: Pikachu → 使用招式
-|request|{"active":[...], "side":{...}}        → 玩家选择的 JSON 请求
+|request|{"active":[...], "side":{...}}          → 玩家选择的 JSON 请求
 ```
 
 解析器实现：

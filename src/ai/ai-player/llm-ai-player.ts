@@ -31,19 +31,21 @@ interface OpponentPokemon {
 	status?: string;
 	terastallized?: boolean; // 是否已太晶化
 	teraType?: string; // 太晶化属性
+	slot?: number; // 位置索引（0 或 1）
 }
 
 export class LLMAIPlayer extends AIPlayer {
 	private readonly llmProvider: LLMProvider;
 	private readonly translator: Translator;
 	private lastRequest: SwitchRequest | TeamPreviewRequest | MoveRequest | null = null;
-	private opponentTeam: { [name: string]: OpponentPokemon } = {};
+	private opponentTeam: { [name: string]: OpponentPokemon } = {}; // 按名称追踪（单打兼容）
+	private opponentTeamSlots: (OpponentPokemon | null)[] = [null, null]; // 按位置追踪（双打）
 	private teamData: any[] | null = null;
 	private opponentTeamData: any[] | null = null;
 
-	// debug设置
-	private debugmode: boolean = false;
-	private aiResponseLogMode: boolean = false;
+	// debug设置 (从环境变量读取)
+	private debugmode: boolean;
+	private aiResponseLogMode: boolean;
 
 	// 场地状态跟踪
 	private weather: string | null = null;
@@ -63,12 +65,25 @@ export class LLMAIPlayer extends AIPlayer {
 	private playerChoiceResolver: (() => void) | null = null; // 用于等待用户选择的resolver
 	private playerTeamOrderResolver: (() => void) | null = null; // 用于等待用户队伍顺序的resolver
 
+	// 历史记录（只记录每回合的操作）
+	private battleHistory: Array<{ turn: number; state: string }> = [];
+	private currentTurn: number = 0;
+	private maxHistoryTurns: number = 3; // 只保留最近3回合
+
+	// 开场首发记录
+	private myStartingPokemon: string | null = null; // 我方开场首发
+	private opponentStartingPokemon: string | null = null; // 对手开场首发
+	private hasRecordedStarting: boolean = false; // 是否已记录开场首发
+
+	// 待处理的请求（等待 |turn| 消息后处理）
+	private pendingRequest: MoveRequest | null = null;
+
 	constructor(
 		playerStream: any,
 		llmProvider: LLMProvider,
 		teamData: any[] | null = null,
 		opponentTeamData: any[] | null = null,
-		debug = false
+		debug = false // 传给Showdown SDK调试参数
 	) {
 		super(playerStream, debug);
 		this.llmProvider = llmProvider;
@@ -79,6 +94,10 @@ export class LLMAIPlayer extends AIPlayer {
 		// 从环境变量读取作弊概率配置
 		const cheatProb = parseFloat(process.env.AI_CHEAT_PROBABILITY || '0.5');
 		this.cheatProbability = isNaN(cheatProb) ? 0.5 : Math.max(0, Math.min(1, cheatProb));
+
+		// 从环境变量读取调试设置
+		this.debugmode = process.env.AI_DEBUG === 'true';
+		this.aiResponseLogMode = process.env.AI_RESPONSE_LOG === 'true';
 	}
 
 	/**
@@ -178,6 +197,60 @@ export class LLMAIPlayer extends AIPlayer {
 	}
 
 	/**
+	 * 添加回合历史记录
+	 */
+	private addToHistory(action: string): void {
+		if (!action) return;
+
+		// 如果当前回合已有记录，追加到 state；否则新建
+		const existingIndex = this.battleHistory.findIndex(h => h.turn === this.currentTurn);
+		if (existingIndex >= 0) {
+			this.battleHistory[existingIndex].state += ` | ${action}`;
+		} else {
+			// 只在回合数大于0时才创建新记录（排除开场首发）
+			if (this.currentTurn > 0) {
+				this.battleHistory.push({
+					turn: this.currentTurn,
+					state: action
+				});
+			}
+		}
+
+		// 只保留最近 N 回合（保留开场首发，回合0）
+		while (this.battleHistory.length > this.maxHistoryTurns + 1) {
+			// 查找并删除最旧的非开场首发记录
+			const oldestNonStartingIndex = this.battleHistory.findIndex(h => h.turn > 0);
+			if (oldestNonStartingIndex >= 0) {
+				this.battleHistory.splice(oldestNonStartingIndex, 1);
+			} else {
+				break;
+			}
+		}
+	}
+
+	/**
+	 * 获取历史记录的文本描述
+	 */
+	private getHistoryText(): string {
+		if (this.battleHistory.length === 0) {
+			return '';
+		}
+
+		let historyText = '\n【对战历史】\n';
+		this.battleHistory.forEach(h => {
+			if (h.turn === 0) {
+				// 开场首发显示
+				historyText += `${h.state}\n`;
+			} else {
+				// 正常回合，处理空操作的情况
+				const stateText = h.state || '(未记录)';
+				historyText += `回合${h.turn}: ${stateText}\n`;
+			}
+		});
+		return historyText;
+	}
+
+	/**
 	 * 解析战斗消息，更新场地状态
 	 * AI 是 p2，对手是 p1
 	 */
@@ -186,6 +259,56 @@ export class LLMAIPlayer extends AIPlayer {
 		if (parts.length === 0) return;
 
 		const cmd = parts[0];
+
+		// 回合数更新
+		if (cmd === 'turn') {
+			this.currentTurn = parseInt(parts[1] || '0');
+			return;
+		}
+
+		// 记录对手的招式使用
+		if (cmd === 'move') {
+			const ident = parts[1];
+			if (ident) {
+				const moveName = parts[2];
+				if (moveName) {
+					const moveCN = this.translate(moveName, 'moves');
+					const speciesName = ident.split(': ')[1];
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					const player = ident.startsWith('p1') ? '对手的' : '我方的';
+					const action = `${player}${speciesCN}使用${moveCN}`;
+					// 更新当前回合的对手操作
+					this.addToHistory(action);
+				}
+			}
+		}
+
+		// 记录主动切换 (switch) 和被动换人 (drag)
+		if (cmd === 'switch' || cmd === 'drag') {
+			const ident = parts[1];
+			if (ident) {
+				const speciesName = ident.split(': ')[1];
+				const speciesCN = this.translate(speciesName, 'pokemon');
+				const player = ident.startsWith('p1') ? '对手的' : '我方的';
+				const actionType = cmd === 'drag' ? '被迫换上' : '切换至';
+				const action = `${player}${actionType}${speciesCN}`;
+				// 记录到历史
+				this.addToHistory(action);
+			}
+		}
+
+		// 记录宝可梦倒下
+		if (cmd === 'faint') {
+			const ident = parts[1];
+			if (ident) {
+				const speciesName = ident.split(': ')[1];
+				const speciesCN = this.translate(speciesName, 'pokemon');
+				const player = ident.startsWith('p1') ? '对手的' : '我方的';
+				const action = `${player}${speciesCN}倒下`;
+				// 记录到历史
+				this.addToHistory(action);
+			}
+		}
 
 		// ========== 场地状态 ==========
 
@@ -281,6 +404,16 @@ export class LLMAIPlayer extends AIPlayer {
 				const speciesName = ident.split(': ')[1];
 				const condition = parts[3] || '100/100';
 
+				// 提取位置信息：p1a = slot 0, p1b = slot 1
+				const slotChar = ident.charAt(2); // 'a' 或 'b'
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
+
+				// 记录开场首发（回合0或未开始时）
+				if (!this.hasRecordedStarting && this.currentTurn === 0 && this.opponentStartingPokemon === null) {
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					this.opponentStartingPokemon = speciesCN;
+				}
+
 				// 更新 opponentTeamData 的顺序（切换时与第一位交换）
 				if (this.opponentTeamData && this.opponentTeamData.length > 0) {
 					// 查找切换上场的宝可梦在队伍中的索引
@@ -306,18 +439,48 @@ export class LLMAIPlayer extends AIPlayer {
 					this.opponentTeam[key].active = false;
 				});
 
-				// 更新当前出战的宝可梦
+				// 更新当前出战的宝可梦（按名称追踪，单打兼容）
 				if (!this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName] = {
 						name: speciesName,
 						condition: condition,
 						active: true,
-						boosts: {}
+						boosts: {},
+						slot: slot
 					};
 				} else {
 					this.opponentTeam[speciesName].condition = condition;
 					this.opponentTeam[speciesName].active = true;
 					this.opponentTeam[speciesName].boosts = {}; // 重置能力变化
+					this.opponentTeam[speciesName].slot = slot;
+				}
+
+				// 更新按位置追踪（双打）
+				this.opponentTeamSlots[slot] = {
+					name: speciesName,
+					condition: condition,
+					active: true,
+					boosts: {},
+					slot: slot
+				};
+			}
+			// 记录我方开场首发
+			else if (ident && ident.startsWith('p2')) {
+				const speciesName = ident.split(': ')[1];
+
+				// 记录开场首发（回合0或未开始时）
+				if (!this.hasRecordedStarting && this.currentTurn === 0 && this.myStartingPokemon === null) {
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					this.myStartingPokemon = speciesCN;
+
+					// 当收集齐双方开场首发后，创建历史记录
+					if (this.myStartingPokemon && this.opponentStartingPokemon) {
+						this.battleHistory.push({
+							turn: 0,
+							state: `我方首发: ${this.myStartingPokemon} | 对方首发: ${this.opponentStartingPokemon}`
+						});
+						this.hasRecordedStarting = true;
+					}
 				}
 			}
 		}
@@ -329,8 +492,17 @@ export class LLMAIPlayer extends AIPlayer {
 			const condition = parts[2];
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
+
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].condition = condition;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					this.opponentTeamSlots[slot]!.condition = condition;
 				}
 			}
 		}
@@ -341,10 +513,17 @@ export class LLMAIPlayer extends AIPlayer {
 			const ident = parts[1];
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
+
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].condition = '0 fnt';
 					this.opponentTeam[speciesName].active = false;
 				}
+
+				// 更新按位置追踪
+				this.opponentTeamSlots[slot] = null;
 			}
 		}
 
@@ -356,13 +535,25 @@ export class LLMAIPlayer extends AIPlayer {
 				const speciesName = ident.split(': ')[1];
 				const stat = parts[2];
 				const amount = parseInt(parts[3] || '1');
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					if (!this.opponentTeam[speciesName].boosts) {
 						this.opponentTeam[speciesName].boosts = {};
 					}
 					this.opponentTeam[speciesName].boosts![stat] =
 						(this.opponentTeam[speciesName].boosts![stat] || 0) + amount;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					if (!this.opponentTeamSlots[slot]!.boosts) {
+						this.opponentTeamSlots[slot]!.boosts = {};
+					}
+					this.opponentTeamSlots[slot]!.boosts![stat] =
+						(this.opponentTeamSlots[slot]!.boosts![stat] || 0) + amount;
 				}
 			}
 		}
@@ -375,13 +566,25 @@ export class LLMAIPlayer extends AIPlayer {
 				const speciesName = ident.split(': ')[1];
 				const stat = parts[2];
 				const amount = parseInt(parts[3] || '1');
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					if (!this.opponentTeam[speciesName].boosts) {
 						this.opponentTeam[speciesName].boosts = {};
 					}
 					this.opponentTeam[speciesName].boosts![stat] =
 						(this.opponentTeam[speciesName].boosts![stat] || 0) - amount;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					if (!this.opponentTeamSlots[slot]!.boosts) {
+						this.opponentTeamSlots[slot]!.boosts = {};
+					}
+					this.opponentTeamSlots[slot]!.boosts![stat] =
+						(this.opponentTeamSlots[slot]!.boosts![stat] || 0) - amount;
 				}
 			}
 		}
@@ -392,9 +595,17 @@ export class LLMAIPlayer extends AIPlayer {
 			const ident = parts[1];
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].boosts = {};
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					this.opponentTeamSlots[slot]!.boosts = {};
 				}
 			}
 		}
@@ -406,9 +617,17 @@ export class LLMAIPlayer extends AIPlayer {
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
 				const status = parts[2];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].status = status;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					this.opponentTeamSlots[slot]!.status = status;
 				}
 			}
 		}
@@ -419,9 +638,17 @@ export class LLMAIPlayer extends AIPlayer {
 			const ident = parts[1];
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].status = undefined;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					this.opponentTeamSlots[slot]!.status = undefined;
 				}
 			}
 		}
@@ -432,9 +659,17 @@ export class LLMAIPlayer extends AIPlayer {
 			const ident = parts[1];
 			if (ident && ident.startsWith('p1')) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
+				// 更新按名称追踪
 				if (this.opponentTeam[speciesName]) {
 					this.opponentTeam[speciesName].item = undefined;
+				}
+
+				// 更新按位置追踪
+				if (this.opponentTeamSlots[slot]) {
+					this.opponentTeamSlots[slot]!.item = undefined;
 				}
 			}
 		}
@@ -448,12 +683,20 @@ export class LLMAIPlayer extends AIPlayer {
 
 			if (ident && teraType) {
 				const speciesName = ident.split(': ')[1];
+				const slotChar = ident.charAt(2);
+				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
 
 				if (ident.startsWith('p1')) {
-					// 对手太晶化
+					// 对手太晶化 - 更新按名称追踪
 					if (this.opponentTeam[speciesName]) {
 						this.opponentTeam[speciesName].terastallized = true;
 						this.opponentTeam[speciesName].teraType = teraType;
+					}
+
+					// 更新按位置追踪
+					if (this.opponentTeamSlots[slot]) {
+						this.opponentTeamSlots[slot]!.terastallized = true;
+						this.opponentTeamSlots[slot]!.teraType = teraType;
 					}
 				} else if (ident.startsWith('p2')) {
 					// 我方太晶化 (AI是p2)
@@ -491,9 +734,18 @@ export class LLMAIPlayer extends AIPlayer {
 	 */
 	protected override handleActiveTurnRequest(request: MoveRequest): void {
 		this.lastRequest = request;
-		this.handleActiveAsync(request).catch(error => {
-			console.error('AI操作失败，使用默认操作。\nhandleActiveTurnRequest error:', error);
-			this.choose('default');
+		this.pendingRequest = request;
+
+		// 延迟到下一个 tick 处理，确保 |turn| 消息先被处理
+		process.nextTick(() => {
+			if (this.pendingRequest) {
+				const req = this.pendingRequest;
+				this.pendingRequest = null;
+				this.handleActiveAsync(req).catch(error => {
+					console.error('AI操作失败，使用默认操作。\nhandleActiveTurnRequest error:', error);
+					this.choose('default');
+				});
+			}
 		});
 	}
 
@@ -684,6 +936,7 @@ export class LLMAIPlayer extends AIPlayer {
 				actions += '\n';
 			});
 
+			const historyText = this.getHistoryText();
 			const prompt = `当前要切换宝可梦。指令格式：switch X（X为宝可梦编号）
 【考虑因素】
 0. 【**关键**】属性克制和招式威力
@@ -691,8 +944,7 @@ export class LLMAIPlayer extends AIPlayer {
 2. HP状况和异常状态
 3. 特性和道具配合
 4. 队伍配合和场上局势
-${battleState}
-${actions}`;
+${battleState}${actions}${historyText}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
 
@@ -707,6 +959,11 @@ ${actions}`;
 				if (parsed && parsed.type === 'switch') {
 					const targetSwitch = switches.find(s => s.slot === parsed.index + 1);
 					if (targetSwitch) {
+						// 记录我方操作
+						const speciesName = targetSwitch.pokemon.ident.split(': ')[1];
+						const speciesCN = this.translate(speciesName, 'pokemon');
+						const action = `强制切换至${speciesCN}`;
+
 						return targetSwitch.slot;
 					}
 				}
@@ -741,6 +998,17 @@ ${actions}`;
 		try {
 			const battleState = this.buildBattleState(request, true);
 
+			// 生成队伍简要列表（单行显示）
+			let teamSummary = '';
+			if (request.side && request.side.pokemon) {
+				const pokemonNames = request.side.pokemon.map((p: any, i: number) => {
+					const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					return `${i + 1}.${speciesCN}`;
+				});
+				teamSummary = pokemonNames.join(' ');
+			}
+
 			let extraInfo = '';
 			let damageCalcForFirstPokemon = '';
 			if (playerTeamInfo) {
@@ -754,6 +1022,7 @@ ${actions}`;
 			if(this.shouldCheat()) {
 				extraInfo += "【重要情报】对方的首发是1号宝可梦！";
 			}
+			const historyText = this.getHistoryText();
 			const prompt = `当前要设置队伍首发。指令格式：team 123456（数字为宝可梦编号，首发在最前）
 【考虑因素】
 0. 【**重要**】如果有重要情报，请优先克制对方首发宝可梦
@@ -762,6 +1031,7 @@ ${actions}`;
 3. 特性和道具配合
 4. 攻守平衡
 ${battleState}
+【队伍选择】你的队伍是：${teamSummary}
 ${extraInfo}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
@@ -856,6 +1126,7 @@ ${extraInfo}`;
 				extraInfo += `【重要情报】对手的操作：${translatedChoice}\n`;
 			}
 
+			const historyText = this.getHistoryText();
 			const prompt = `当前要选择下一回合的操作。指令格式：move X（使用第X个招式）、move X terastallize（使用第X个招式并太晶化）、switch X（切换到第X个宝可梦）
 【考虑因素】
 1. 【**重要**】如果获得了对手的这回合的操作信息，请优先通过太晶化反制、换人联攻联防、使用针对招式或者抓住时机强化来反制对手的选择
@@ -864,7 +1135,7 @@ ${extraInfo}`;
 4. 剩余宝可梦状态和HP
 5. 注意场地效果和天气影响
 6. 判断是否需要使用太晶化进攻或者防守
-${battleState}${actions}
+${battleState}${actions}${historyText}
 ${extraInfo}`;
 
 			const systemPrompt = this.getBaseSystemPrompt();
@@ -882,12 +1153,25 @@ ${extraInfo}`;
 					if (parsed.terastallize && active.canTerastallize && canTerastallize && this.myTerastallizedPokemon === null) {
 						choice += ' terastallize';
 					}
+
+					// 记录我方操作
+					const moveData = Dex.moves.get(moves[parsed.index].move.move);
+					const moveCN = this.translate(moveData.name, 'moves');
+					const speciesName = currentPokemon.ident.split(': ')[1];
+					const speciesCN = this.translate(speciesName, 'pokemon');
+					const action = `${speciesCN}使用${moveCN}${parsed.terastallize ? '(太晶化)' : ''}`;
+
 					return choice;
 				}
 
 				if (parsed && parsed.type === 'switch') {
 					const targetSwitch = switches.find(s => s.slot === parsed.index + 1);
 					if (targetSwitch) {
+						// 记录我方操作
+						const switchSpeciesName = targetSwitch.pokemon.ident.split(': ')[1];
+						const switchSpeciesCN = this.translate(switchSpeciesName, 'pokemon');
+						const action = `切换至${switchSpeciesCN}`;
+
 						return `switch ${targetSwitch.slot}`;
 					}
 				}
@@ -971,7 +1255,7 @@ ${extraInfo}`;
 		// 我方队伍信息
 		state += '【我方队伍】\n';
 		request.side.pokemon.forEach((p: any, i: number) => {
-			const speciesName = p.ident.split(': ')[1];
+			const speciesName = p.details ? p.details.split(',')[0].trim() : p.ident.split(': ')[1];
 			const speciesCN = this.translate(speciesName, 'pokemon');
 			const speciesData = Dex.species.get(speciesName);
 			let pokemonData: AnyObject | undefined = undefined;
@@ -1195,7 +1479,7 @@ ${extraInfo}`;
 	private getBaseSystemPrompt(): string {
 		let debugInfo = '';
 		if (this.debugmode || this.aiResponseLogMode) {
-			debugInfo = '，并在后面加上一句解释';
+			debugInfo = '，并在后面加上一句解释这个选择的原因';
 		}
 		return `你是一名宝可梦对战专家，精通单打对战策略。
 【任务】
