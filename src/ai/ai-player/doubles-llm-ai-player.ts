@@ -46,9 +46,9 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 	private teamData: any[] | null = null;
 	private opponentTeamData: any[] | null = null;
 
-	// debug设置
-	private debugmode: boolean = false;
-	private aiResponseLogMode: boolean = false;
+	// debug设置 (从环境变量读取)
+	private debugmode: boolean;
+	private aiResponseLogMode: boolean;
 
 	// 场地状态跟踪
 	private weather: string | null = null;
@@ -88,7 +88,7 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 		llmProvider: LLMProvider,
 		teamData: any[] | null = null,
 		opponentTeamData: any[] | null = null,
-		debug = false
+		debug = false // 传给Showdown SDK调试参数
 	) {
 		super(playerStream, debug);
 		this.llmProvider = llmProvider;
@@ -98,6 +98,10 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 
 		const cheatProb = parseFloat(process.env.AI_CHEAT_PROBABILITY || '0.5');
 		this.cheatProbability = isNaN(cheatProb) ? 0.5 : Math.max(0, Math.min(1, cheatProb));
+
+		// 从环境变量读取调试设置
+		this.debugmode = process.env.AI_DEBUG === 'true';
+		this.aiResponseLogMode = process.env.AI_RESPONSE_LOG === 'true';
 	}
 
 	setPlayerChoice(choice: string): void {
