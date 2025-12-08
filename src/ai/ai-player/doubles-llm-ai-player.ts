@@ -31,6 +31,7 @@ interface OpponentPokemon {
 	terastallized?: boolean;
 	teraType?: string;
 	slot?: number; // 位置索引（0 或 1）
+	turnsSinceSwitch?: number; // 登场了几个回合
 }
 
 /**
@@ -43,6 +44,7 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 	private lastRequest: SwitchRequest | TeamPreviewRequest | MoveRequest | null = null;
 	private opponentTeamSlots: (OpponentPokemon | null)[] = [null, null]; // 对手场上两个位置
 	private opponentTeam: { [name: string]: OpponentPokemon } = {}; // 按名称追踪
+	private myTeamSlots: { turnsSinceSwitch: number }[] = [{ turnsSinceSwitch: 0 }, { turnsSinceSwitch: 0 }]; // 我方场上两个位置的登场回合数
 	private teamData: any[] | null = null;
 	private opponentTeamData: any[] | null = null;
 
@@ -117,17 +119,32 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 
 		if (this.opponentTeamData && order && order.length >= 1) {
 			const originalTeamData = [...this.opponentTeamData];
-			const reorderedTeamData: any[] = [];
+			const selectedTeamData: any[] = [];
 
+			// 只保留对手选择出战的宝可梦
 			for (let i = 0; i < order.length; i++) {
 				const digit = parseInt(order[i]);
 				if (!isNaN(digit) && digit >= 1 && digit <= originalTeamData.length) {
-					reorderedTeamData.push(originalTeamData[digit - 1]);
+					selectedTeamData.push(originalTeamData[digit - 1]);
 				}
 			}
 
-			if (reorderedTeamData.length === originalTeamData.length) {
-				this.opponentTeamData = reorderedTeamData;
+			// 更新为只包含出战的宝可梦（通常是 4 只）
+			if (selectedTeamData.length > 0) {
+				this.opponentTeamData = selectedTeamData;
+
+				// 获取出战宝可梦的名称集合
+				const selectedSpeciesNames = new Set(
+					selectedTeamData.map(mon => this.normalizeSpeciesName(mon.species))
+				);
+
+				// 清理 opponentTeam，删除未出战的宝可梦
+				const currentOpponentTeam = { ...this.opponentTeam };
+				for (const speciesName in currentOpponentTeam) {
+					if (!selectedSpeciesNames.has(speciesName)) {
+						delete this.opponentTeam[speciesName];
+					}
+				}
 			}
 		}
 
@@ -239,6 +256,25 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 		// 回合数更新
 		if (cmd === 'turn') {
 			this.currentTurn = parseInt(parts[1] || '0');
+
+			// 每回合开始，为所有在场的宝可梦增加登场回合数
+			// 我方宝可梦
+			this.myTeamSlots.forEach(slot => {
+				slot.turnsSinceSwitch++;
+			});
+
+			// 对手宝可梦
+			this.opponentTeamSlots.forEach(slot => {
+				if (slot) {
+					slot.turnsSinceSwitch = (slot.turnsSinceSwitch || 0) + 1;
+				}
+			});
+			Object.values(this.opponentTeam).forEach(pokemon => {
+				if (pokemon.active) {
+					pokemon.turnsSinceSwitch = (pokemon.turnsSinceSwitch || 0) + 1;
+				}
+			});
+
 			return;
 		}
 
@@ -371,7 +407,8 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 					condition: condition,
 					active: true,
 					boosts: {},
-					slot: slot
+					slot: slot,
+					turnsSinceSwitch: 0 // 切换时重置为 0
 				};
 
 				// 更新按名称追踪
@@ -381,13 +418,15 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 						condition: condition,
 						active: true,
 						boosts: {},
-						slot: slot
+						slot: slot,
+						turnsSinceSwitch: 0 // 切换时重置为 0
 					};
 				} else {
 					this.opponentTeam[this.normalizeSpeciesName(speciesName)].condition = condition;
 					this.opponentTeam[this.normalizeSpeciesName(speciesName)].active = true;
 					this.opponentTeam[this.normalizeSpeciesName(speciesName)].boosts = {};
 					this.opponentTeam[this.normalizeSpeciesName(speciesName)].slot = slot;
+					this.opponentTeam[this.normalizeSpeciesName(speciesName)].turnsSinceSwitch = 0; // 切换时重置为 0
 				}
 			}
 			// 记录我方开场首发
@@ -395,6 +434,9 @@ export class DoublesLLMAIPlayer extends AIPlayer {
 				const speciesName = ident.split(': ')[1];
 				const slotChar = ident.charAt(2);
 				const slot = slotChar === 'a' ? 0 : slotChar === 'b' ? 1 : 0;
+
+				// 重置登场回合数
+				this.myTeamSlots[slot].turnsSinceSwitch = 0;
 
 				// 记录开场首发（回合0或未开始时）
 				if (!this.hasRecordedStarting && this.currentTurn === 0) {
@@ -1103,8 +1145,18 @@ ${extraInfo}`;
 								moveDesc += `/命中:${moveData.accuracy}`;
 							}
 							moveDesc += `]`;
+
+							// 判断是否为群体伤害招式
+							if (this.isMultiTargetMove(moveData)) {
+								moveDesc += ` (群伤)`;
+							}
+
 							if (moveData.shortDesc) {
-								moveDesc += ` (${moveData.shortDesc})`;
+								moveDesc += ` - ${moveData.shortDesc}`;
+							}
+							// 判断击掌奇袭是否可用
+							if (moveData.id === 'fakeout' && (oppPokemon.turnsSinceSwitch || 0) > 0) {
+								moveDesc += ` [不可用，登场第${oppPokemon.turnsSinceSwitch}回合]`;
 							}
 							return moveDesc;
 						});
@@ -1117,19 +1169,19 @@ ${extraInfo}`;
 			}
 
 			// 构建两个位置的选项
-			prompt += '【我方当前在场宝可梦 - 可用操作】\n';
+			prompt += '【我方当前在场宝可梦】\n';
 			positionData.forEach((data, index) => {
-				const positionName = index === 0 ? '左侧位置' : '右侧位置';
+				const positionName = index === 0 ? '左侧' : '右侧';
 				const speciesName = data.pokemon.ident.split(': ')[1];
 				const speciesCN = this.translate(speciesName, 'pokemon');
 				const speciesData = Dex.species.get(speciesName);
 
-				prompt += `\n【${positionName} - ${speciesCN}】\n`;
+				prompt += `\n${positionName} - ${speciesCN}`;
 
 				// 显示当前宝可梦的详细信息
 				if (speciesData.types) {
 					const typesCN = speciesData.types.map((t: string) => this.translate(t, 'types'));
-					prompt += `  属性: [${typesCN.join('/')}]`;
+					prompt += ` [${typesCN.join('/')}]`;
 				}
 
 				const condition = data.pokemon.condition || '未知';
@@ -1160,29 +1212,6 @@ ${extraInfo}`;
 					prompt += ` 道具:${itemCN}`;
 				}
 
-				// 显示所有招式及其详细描述
-				if (data.pokemon.moves && data.pokemon.moves.length > 0) {
-					prompt += `\n  持有招式:\n`;
-					data.pokemon.moves.forEach((moveName: string) => {
-						const moveData = Dex.moves.get(moveName);
-						const moveCN = this.translate(moveData.name, 'moves');
-						const typeCN = this.translate(moveData.type, 'types');
-						const categoryCN = this.translate(moveData.category, 'category');
-						prompt += `    • ${moveCN} [${typeCN}/${categoryCN}`;
-						if (moveData.basePower) {
-							prompt += `/威力:${moveData.basePower}`;
-						}
-						if (moveData.accuracy !== true && moveData.accuracy) {
-							prompt += `/命中:${moveData.accuracy}`;
-						}
-						prompt += `]`;
-						if (moveData.shortDesc) {
-							prompt += ` - ${moveData.shortDesc}`;
-						}
-						prompt += '\n';
-					});
-				}
-
 				prompt += '\n';
 
 				if (data.moves.length === 0 && data.switches.length === 0) {
@@ -1190,36 +1219,42 @@ ${extraInfo}`;
 					return;
 				}
 
-				// 招式选项
+				// 可用招式（合并招式信息和选择指令）
 				if (data.moves.length > 0) {
-					prompt += '可用操作 - 使用招式（目标: 1=对手左侧, 2=对手右侧, -1=己方左侧, -2=己方右侧）:\n';
+					prompt += '\n可用招式（目标: 1=对手左侧, 2=对手右侧, -1=己方左侧, -2=己方右侧）:\n';
 					data.moves.forEach((m) => {
 						const moveData = Dex.moves.get(m.move.move);
 						const moveCN = this.translate(moveData.name, 'moves');
-						prompt += `  ${m.choice}: ${moveCN}`;
+						const typeCN = this.translate(moveData.type, 'types');
+						const categoryCN = this.translate(moveData.category, 'category');
+
+						prompt += `  • ${m.choice}: ${moveCN} [${typeCN}/${categoryCN}`;
+						if (moveData.basePower) {
+							prompt += `/威力:${moveData.basePower}`;
+						}
+						if (moveData.accuracy !== true && moveData.accuracy) {
+							prompt += `/命中:${moveData.accuracy}`;
+						}
+						prompt += `]`;
+
+						// 判断是否为群体伤害招式
+						if (this.isMultiTargetMove(moveData)) {
+							prompt += ` (群伤)`;
+						}
+
+						if (moveData.shortDesc) {
+							prompt += ` - ${moveData.shortDesc}`;
+						}
+
 						if (m.move.zMove) {
 							prompt += ' [Z招式]';
 						}
-						prompt += '\n';
-					});
-				}
 
-				// 切换选项
-				if (data.switches.length > 0) {
-					prompt += '切换宝可梦:\n';
-					data.switches.forEach((s) => {
-						const switchSpeciesName = s.pokemon.ident.split(': ')[1];
-						const switchSpeciesCN = this.translate(switchSpeciesName, 'pokemon');
-						const speciesData = Dex.species.get(switchSpeciesName);
-						const condition = s.pokemon.condition || '未知';
-
-						prompt += `  switch ${s.slot}: ${switchSpeciesCN}`;
-						if (speciesData.types) {
-							const typesCN = speciesData.types.map((t: string) => this.translate(t, 'types'));
-							prompt += ` [${typesCN.join('/')}]`;
+						// 判断击掌奇袭是否可用
+						if (moveData.id === 'fakeout' && this.myTeamSlots[index].turnsSinceSwitch > 0) {
+							prompt += ` [不可用，登场第${this.myTeamSlots[index].turnsSinceSwitch}回合]`;
 						}
-						prompt += ` HP:${condition}`;
-						if (s.pokemon.status) prompt += ` [${s.pokemon.status}]`;
+
 						prompt += '\n';
 					});
 				}
@@ -1228,6 +1263,26 @@ ${extraInfo}`;
 					prompt += '提示: 可以太晶化（在招式后加 terastallize）\n';
 				}
 			});
+
+			// 切换选项
+			if (positionData[0].switches.length > 0) {
+				prompt += '【可切换宝可梦】\n';
+				positionData[0].switches.forEach((s) => {
+					const switchSpeciesName = s.pokemon.ident.split(': ')[1];
+					const switchSpeciesCN = this.translate(switchSpeciesName, 'pokemon');
+					const speciesData = Dex.species.get(switchSpeciesName);
+					const condition = s.pokemon.condition || '未知';
+
+					prompt += `  switch ${s.slot}: ${switchSpeciesCN}`;
+					if (speciesData.types) {
+						const typesCN = speciesData.types.map((t: string) => this.translate(t, 'types'));
+						prompt += ` [${typesCN.join('/')}]`;
+					}
+					prompt += ` HP:${condition}`;
+					if (s.pokemon.status) prompt += ` [${s.pokemon.status}]`;
+					prompt += '\n';
+				});
+			}
 
 			let extraInfo = '';
 			if (playerChoiceInfo) {
@@ -1432,14 +1487,6 @@ ${extraInfo}`;
 
 				state += `${i + 1}.${speciesCN}`;
 
-				if (!isTeamPreview) {
-					const trackedPokemon = this.opponentTeam[this.normalizeSpeciesName(speciesName)];
-					if (trackedPokemon && trackedPokemon.active) {
-						const slotName = trackedPokemon.slot === 0 ? '左侧' : '右侧';
-						state += ` [当前出战-${slotName}]`;
-					}
-				}
-
 				if (speciesData.types) {
 					const typesCN = speciesData.types.map((t: string) => this.translate(t, 'types'));
 					state += ` ${isTeamPreview ? '' : '属性:'}[${typesCN.join('/')}]`;
@@ -1535,7 +1582,7 @@ ${extraInfo}`;
 2. 保护：预判对手操作进行保护，注意连续保护成功率只有三分之一。广域防守可以让对方的群体伤害技能无效，且可以连续使用，注意无法保护单体伤害技能。
 3. 天气和场地：注意天气和场地会影响双方宝可梦伤害，且电场不能睡眠，精神场地先制攻击无效。需要获得场地和天气的控制权。
 4. 速度控制：顺风速度翻倍、戏法空间速度慢的先手。
-5. 击掌奇袭：击掌奇袭**只有登场的第一回合有效**，注意看历史操作记录，是否为上场的第一回合。
+5. 击掌奇袭：击掌奇袭可以使对方无法行动，但**只有登场的第一回合有效**。
 6. 异常状态：麻痹降低对手速度，烧伤削弱物攻宝可梦。
 【输出格式】只输出一句指令${debugInfo}
 【重要】你有时候可以获得对手的操作，请根据对手的操作信息做出压制。
@@ -2027,5 +2074,19 @@ ${extraInfo}`;
 		const normalized1 = this.normalizeSpeciesName(name1);
 		const normalized2 = this.normalizeSpeciesName(name2);
 		return normalized1 === normalized2;
+	}
+
+	/**
+	 * 判断招式是否为群体伤害招式
+	 */
+	private isMultiTargetMove(moveData: any): boolean {
+		if (!moveData || !moveData.target) return false;
+
+		// 只标记攻击类招式，排除变化类招式
+		if (moveData.category === 'Status') return false;
+
+		// 群体伤害招式的目标类型
+		const multiTargets = ['allAdjacent', 'allAdjacentFoes', 'all'];
+		return multiTargets.includes(moveData.target);
 	}
 }

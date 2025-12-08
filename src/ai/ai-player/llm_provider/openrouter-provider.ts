@@ -59,18 +59,32 @@ export class OpenRouterProvider extends LLMProvider {
 
 		try {
 			const messages = this.buildMessages(prompt, systemPrompt);
-
-			const response = await axios.post(
-				this.apiUrl,
-				{
+			let body = {
+				model: this.model,
+				messages: messages,
+				temperature: this.temperature,
+				max_tokens: this.maxTokens,
+				reasoning: { 
+					enabled: true,
+					effort: "minimal" // 可选: "minimal", "low", "medium", "high" 
+				}
+			}
+			if (this.model.startsWith('deepseek/')) {
+				body = {
 					model: this.model,
 					messages: messages,
 					temperature: this.temperature,
 					max_tokens: this.maxTokens,
 					reasoning: { 
+						enabled: false,
 						effort: "minimal" // 可选: "minimal", "low", "medium", "high" 
 					}
-				},
+				};
+			}
+
+			const response = await axios.post(
+				this.apiUrl,
+				body,
 				{
 					headers: {
 						'Content-Type': 'application/json',
